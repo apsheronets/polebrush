@@ -20,7 +20,7 @@
   @see
   <http://thresholdstate.com/articles/4312/the-textile-reference-manual>
   the official textile reference manual
-  @author Alexander Markov (2009-2010) apsheronets\@gmail.com
+  @author Alexander Markov 2009 apsheronets\@gmail.com
 *)
 
 (** {9 Textile syntax tree} *)

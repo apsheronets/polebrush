@@ -19,7 +19,7 @@ let read_file file =
     with End_of_file -> acc
   in loop []
 
-let chlist = read_file "file.txt"
+let chlist = read_file "test.txt"
 
 let sym = "_"
 

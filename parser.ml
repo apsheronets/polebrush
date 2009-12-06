@@ -1,38 +1,84 @@
 open ExtLib
 
+(* my loveley *)
 let (@@) = List.rev_append
+let (>>) f g = g f
 
-(* "abc" -> ['a', 'b', 'c'] *)
-let explode s =
-  let rec loop acc n =
-    try
-      loop ((String.get s n) :: acc) (n+1)
-    with Invalid_argument "index out of bounds" -> acc
-  in loop [] 0
 
-let read_file file =
+(* * * * * * * * * *
+ * Type delaration *
+ * * * * * * * * * *)
+
+type phrase =
+  | CData of string list
+  | Emphasis of phrase    (* _ *)
+  | Strong of phrase      (* * *)
+  | Italic of phrase      (* __ *)
+  | Bold of phrase        (* ** *)
+  | Citation of phrase    (* ?? *)
+  | Deleted of phrase     (* - *)
+  | Inserted of phrase    (* + *)
+  | Superscript of phrase (* ^ *)
+  | Subscript of phrase   (* ~ *)
+  | Span of phrase        (* % *)
+  | Code of phrase        (* @ *)
+
+  | Link of string * phrase
+type alignment =
+  | Right   (* > *)
+  | Left    (* < *)
+  | Center  (* = *)
+  | Justify (* <> *)
+type element =
+  | Phrase of phrase
+  | Element of element
+type block =
+  | Header1 of phrase        (* h1. *)
+  | Header2 of phrase        (* h2. *)
+  | Header3 of phrase        (* h3. *)
+  | Blockquote of phrase     (* bq. *)
+  | Footnote of phrase       (* fnn. *) (* FIXME *)
+  | Paragraph of phrase      (* p.  *)
+  | Blockcode of phrase      (* bc. *)
+  | Pre of phrase            (* pre. *)
+  | Numlist of element list  (* # *)
+  | Bulllist of element list (* * *)
+  (*| Table of FIXME *)
+
+(*let read_file file =
   let chan = open_in file in
   let rec loop acc =
     try
-      let result = input_char chan in
+      let result = input_line chan in
       loop (result::acc)
     with End_of_file -> acc
-  in loop []
+  in loop []*)
 
-let chlist = read_file "test.txt"
+let read_file file =
+  let channel = open_in file in
+  let line_stream_of_channel channel =
+    Stream.from
+      (fun _ ->
+        try Some (input_line channel) with End_of_file -> None) in
+  line_stream_of_channel channel
 
-let sym = "_"
+let s = read_file "test.txt"
 
-let rep = "<em>"
+let parse lines =
+  let rec next para_lines i =
+    match Stream.peek lines, para_lines with
+      | None, [] ->
+          None
+      | Some "", [] ->
+          Stream.junk lines;
+          next para_lines i
+      | Some "", _ | None, _ ->
+          Some (String.concat "\n" (List.rev para_lines))
+      | Some line, _ ->
+          Stream.junk lines;
+          next (line :: para_lines) i in
+  Stream.from (next [])
 
-let parse l =
-  let sym_l = explode sym in
-  let rep_l = explode rep in
-  let rec loop l acc =
-    match l with
-    | h::t ->
-        if h = (List.hd sym_l)
-        then loop t (rep_l @@ acc)
-        else loop t (h::acc)
-    | [] -> acc
-  in loop l []
+
+
+(*let test = List.iter (print_char) (parse chlist)*)

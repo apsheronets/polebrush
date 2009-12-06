@@ -5,9 +5,9 @@ let (@@) = List.rev_append
 let (>>) f g = g f
 
 
-(* * * * * * * * * *
- * Type delaration *
- * * * * * * * * * *)
+(* * * * * * * * * * *
+ * Type  declaration *
+ * * * * * * * * * * *)
 
 type phrase =
   | CData of string list
@@ -65,19 +65,22 @@ let read_file file =
 let s = read_file "test.txt"
 
 let parse lines =
-  let rec next para_lines i =
-    match Stream.peek lines, para_lines with
+  (*let parse_block lines =
+    Stream.of_string (List.hd lines)
+  *)
+  let rec next_block block_lines i =
+    match Stream.peek lines, block_lines with
       | None, [] ->
           None
       | Some "", [] ->
           Stream.junk lines;
-          next para_lines i
+          next_block block_lines i
       | Some "", _ | None, _ ->
-          Some (String.concat "\n" (List.rev para_lines))
+          Some (Paragraph (CData (List.rev block_lines)))
       | Some line, _ ->
           Stream.junk lines;
-          next (line :: para_lines) i in
-  Stream.from (next [])
+          next_block (line :: block_lines) i in
+  Stream.from (next_block [])
 
 
 

@@ -1,6 +1,12 @@
 h1. A _header_
 
-ohshi __wtf__ ohshi
+p{color:red}{text-decoration:underline}. ohshi __wtf__ ohshi
+
+p{color:red}. ohshi __wtf__ ohshi
+
+p{color:red. Broken!
+
+p[ru-ru]. Какая-то жопа.
 
 
    some spaces   

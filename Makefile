@@ -1,5 +1,5 @@
 PACKAGES = extlib
-FILES = parser.ml
+FILES = textile.ml
 
 CAMLC = ocamlfind ocamlc -thread -g $(LIB)
 CAMLOPT = ocamlfind ocamlopt -thread -g $(LIB)

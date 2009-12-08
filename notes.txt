@@ -1,0 +1,2 @@
+a shell command for running interactive console:
+$ make && ocaml -I +camlp4 dynlink.cma camlp4lib.cma camlp4o.cma /usr/lib/ocaml/extlib/extLib.cma textile.cma -init ocamlinit

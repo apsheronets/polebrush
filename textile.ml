@@ -79,15 +79,18 @@ let parse_stream stream =
     let rec find_modifier prev_char n =
       try
         match prev_char, str.[n] with
-        | ' ', '_' -> (* FIXME: need italic support *)
+        | ' ', '_' ->
             (match str.[n+1] with
             | '_' ->
                 close_modifier (n+2) n ['_'; '_'] (fun x -> Italic x)
             | _ ->
-                close_modifier (n+1) n ['_'] (fun x -> Emphasis x)
-            )
-        | ' ', '*' -> (* FIXME: need bold support *)
-            close_modifier (n+1) n ['*'] (fun x -> Strong x)
+                close_modifier (n+1) n ['_'] (fun x -> Emphasis x))
+        | ' ', '*' ->
+            (match str.[n+1] with
+            | '*' ->
+                close_modifier (n+2) n ['*'; '*'] (fun x -> Bold x)
+            | _ ->
+                close_modifier (n+1) n ['*'] (fun x -> Strong x))
         | ' ', '?' ->
             (match str.[n+1] with
             | '?' ->
@@ -113,6 +116,8 @@ let parse_stream stream =
                           (* End of last lexeme position
                            * vvvv *)
     and close_modifier start eoll char_list constr =
+      (* FIXME: jumping *)
+      if str.[start] = ' ' then find_modifier ' ' (start+1) else
       (* don't forget what chlist is not the same as char_list! *)
       let rec loop clist n =
         try

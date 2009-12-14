@@ -52,6 +52,7 @@ doc:
 
 clean:
 	-rm -f *.cm[ioxa] *.o $(CMXS) *~ $(NAME)
+	-rm -f .depend
 	-rm -rf doc
 
 depend:

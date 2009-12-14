@@ -51,8 +51,8 @@ type block =
   | Paragraph  of (attr list * align option * line list) (* p. *)
   | Blockcode  of (attr list * align option * line list) (* bc. *)
   | Pre        of (attr list * align option * line list) (* pre. *)
-  | Numlist    of line list (* # *)
-  | Bulllist   of line list (* * *)
+  | Numlist    of (attr list * align option * line list) (* # *)
+  | Bulllist   of (attr list * align option * line list) (* * *)
   (*| Table of FIXME *)
 
 
@@ -71,6 +71,13 @@ let num_of_char c =
   (int_of_char c) - 48
 
 let parse_stream stream =
+  (*let parse_table strings =
+    let parse_row str =
+      let rec loop acc prev_char n =
+        try
+          match str.[n] with
+          | None, '|' ->
+          | Some c, *)
   let rec line_of_string str =
     (* Cut empty phrases *)
     if String.length str = 0 then [] else

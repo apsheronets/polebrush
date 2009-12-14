@@ -59,8 +59,8 @@ type block =
   | Paragraph  of (attr list * align option * line list) (* p. *)
   | Blockcode  of (attr list * align option * line list) (* bc. *)
   | Pre        of (attr list * align option * line list) (* pre. *)
-  | Numlist    of line list (* # *)
-  | Bulllist   of line list (* * *)
+  | Numlist    of (attr list * align option * line list) (* # *)
+  | Bulllist   of (attr list * align option * line list) (* * *)
   (*| Table of FIXME *)
 
 

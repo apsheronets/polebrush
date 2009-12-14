@@ -80,22 +80,32 @@ let parse_stream stream =
       try
         match prev_char, str.[n] with
         | ' ', '_' -> (* FIXME: need italic support *)
-            close_modifier (n+1) (n-1) ['_'] (fun x -> Emphasis x)
+            (match str.[n+1] with
+            | '_' ->
+                close_modifier (n+2) n ['_'; '_'] (fun x -> Italic x)
+            | _ ->
+                close_modifier (n+1) n ['_'] (fun x -> Emphasis x)
+            )
         | ' ', '*' -> (* FIXME: need bold support *)
-            close_modifier (n+1) (n-1) ['*'] (fun x -> Strong x)
-        (* FIXME: need citation support *)
+            close_modifier (n+1) n ['*'] (fun x -> Strong x)
+        | ' ', '?' ->
+            (match str.[n+1] with
+            | '?' ->
+                close_modifier (n+2) n ['?'; '?'] (fun x -> Citation x)
+            | _ -> find_modifier '?' (n+1)
+            )
         | ' ', '-' ->
-            close_modifier (n+1) (n-1) ['-'] (fun x -> Deleted x)
+            close_modifier (n+1) n ['-'] (fun x -> Deleted x)
         | ' ', '+' ->
-            close_modifier (n+1) (n-1) ['+'] (fun x -> Inserted x)
+            close_modifier (n+1) n ['+'] (fun x -> Inserted x)
         | ' ', '^' -> (* FIXME: is it a good implementation? *)
-            close_modifier (n+1) (n-1) ['^'] (fun x -> Superscript x)
+            close_modifier (n+1) n ['^'] (fun x -> Superscript x)
         | ' ', '~' ->
-            close_modifier (n+1) (n-1) ['~'] (fun x -> Subscript x)
+            close_modifier (n+1) n ['~'] (fun x -> Subscript x)
         | ' ', '%' ->
-            close_modifier (n+1) (n-1) ['%'] (fun x -> Span x)
+            close_modifier (n+1) n ['%'] (fun x -> Span x)
         | ' ', '@' ->
-            close_modifier (n+1) (n-1) ['@'] (fun x -> Code x)
+            close_modifier (n+1) n ['@'] (fun x -> Code x)
         | _, c -> find_modifier c (n+1)
       (* If we have passed whole string without any modifier
        * then we simply pack it in CData *)
@@ -108,15 +118,19 @@ let parse_stream stream =
         try
           match str.[n], clist with
           | c, [h]  when c = h ->
-              (* PLEASE FIXME *)
-              pack_cdata str 0 (eoll+1)
-              :: constr (line_of_string (
-                String.sub str start (n + 1 - start - (List.length clist))
-              ))
-              :: line_of_string (
-                let s = n + (List.length clist) in
-                String.sub str s ((String.length str) - s)
-              )
+              (* PLEASE FIXME *
+               * PLEEEEEAAASE *)
+              let tail =
+                constr (line_of_string (
+                  String.sub str start (n-start-(List.length char_list - 1))
+                ))
+                :: line_of_string (
+                  let s = n + (List.length clist) in
+                  String.sub str s ((String.length str) - s)
+                ) in
+              (* Fixes empty strings in lines like ^"_some line_"$ *)
+              if eoll = 0 then tail
+              else pack_cdata str 0 eoll :: tail
           | c, h::t when c = h -> loop t (n+1)
           | _ -> loop clist (n+1)
         with Invalid_argument _ -> (*CData str (* FIXME *)*)

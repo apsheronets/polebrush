@@ -215,17 +215,17 @@ let parse_stream stream =
     (* Simple paragraph if our string is too shorter *)
     with Invalid_argument _ ->
       Paragraph ([], None, (lines_of_strings (f::t))) in
-  let rec next_block block_strings i =
-    match Stream.peek stream, block_strings with
+  let rec next_block acc =
+    match Stream.peek stream, acc with
       | None, [] ->
           None
       | Some "", [] ->
           Stream.junk stream;
-          next_block block_strings i
+          next_block acc
       | Some "", _ | None, _ ->
-          Some (parse_block (List.rev block_strings))
+          Some (parse_block (List.rev acc))
       | Some str, _ ->
           Stream.junk stream;
-          next_block (str :: block_strings) i in
-  Stream.from (next_block [])
+          next_block (str :: acc) in
+  Stream.from (fun _ -> next_block [])
 

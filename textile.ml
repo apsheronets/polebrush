@@ -15,7 +15,7 @@ type attr =
   | Style    of string (* p{color:red}. *)
   | Language of string (* p[fr-fr]. *)
 type phrase =
-  | CData       of string list
+  | CData       of string
   | Emphasis    of phrase (* _ *)
   | Strong      of phrase (* * *)
   | Italic      of phrase (* __ *)
@@ -27,8 +27,9 @@ type phrase =
   | Subscript   of phrase (* ~ *)
   | Span        of phrase (* % *)
   | Code        of phrase (* @ *)
-
   | Link of string * phrase
+type line =
+  phrase list
 type align =
   | Right   (* > *)
   | Left    (* < *)
@@ -38,14 +39,14 @@ type element =
   | Phrase  of phrase
   | Element of element
 type block =
-  | Header1    of (attr list * align option * phrase) (* h1. *)
-  | Header2    of (attr list * align option * phrase) (* h2. *)
-  | Header3    of (attr list * align option * phrase) (* h3. *)
-  | Blockquote of (attr list * align option * phrase) (* bq. *)
-  | Footnote   of (attr list * align option * phrase) (* fnn. *) (* FIXME *)
-  | Paragraph  of (attr list * align option * phrase) (* p. *)
-  | Blockcode  of (attr list * align option * phrase) (* bc. *)
-  | Pre        of (attr list * align option * phrase) (* pre. *)
+  | Header1    of (attr list * align option * line list) (* h1. *)
+  | Header2    of (attr list * align option * line list) (* h2. *)
+  | Header3    of (attr list * align option * line list) (* h3. *)
+  | Blockquote of (attr list * align option * line list) (* bq. *)
+  | Footnote   of (attr list * align option * line list) (* fnn. *) (* FIXME *)
+  | Paragraph  of (attr list * align option * line list) (* p. *)
+  | Blockcode  of (attr list * align option * line list) (* bc. *)
+  | Pre        of (attr list * align option * line list) (* pre. *)
   | Numlist    of element list (* # *)
   | Bulllist   of element list (* * *)
   (*| Table of FIXME *)
@@ -74,8 +75,8 @@ let sub str start =
   String.sub str start (String.length str - start)
 
 let parse_stream lines =
-  let parse_phrase s =
-    CData s in
+  let parse_phrases strings =
+    List.map (fun x -> [CData x]) strings in
   let parse_lines (start:int) (constr: 'a -> block) (lines: string list) =
     let f = List.hd lines in (* first line *)
     let t = List.tl lines in (* all another lines *)
@@ -95,12 +96,12 @@ let parse_stream lines =
         | '>', None -> loop attrs (Some Right) (n+1)
         | '=', None -> loop attrs (Some Justify) (n+1)
         | '.', _ -> (match f.[n+1] with
-            | ' ' -> constr (attrs, align, parse_phrase (sub f (n+2) :: t))
+            | ' ' -> constr (attrs, align, parse_phrases (sub f (n+2) :: t))
             |  _  -> raise Parse_failure)
-        |  _ -> Paragraph ([], align, (parse_phrase lines))
+        |  _ -> Paragraph ([], align, (parse_phrases lines))
       with Parse_failure | Invalid_argument _ ->
         print_endline "oh shit!";
-        Paragraph ([], align, (parse_phrase lines))
+        Paragraph ([], align, (parse_phrases lines))
     (* Extracts an attribute which closes by char c *)
     and extract_attr_and_continue n c constr attrs align =
       (try
@@ -121,10 +122,10 @@ let parse_stream lines =
             parse_lines 2 (fun x -> Header1 x) lines
         | 'p', _, _ ->
             parse_lines 1 (fun x -> Paragraph x) lines
-        | _ -> Paragraph ([], None, (parse_phrase (f::t)))
+        | _ -> Paragraph ([], None, (parse_phrases (f::t)))
     (* If string is too shorter *)
     with Invalid_argument _ ->
-      Paragraph ([], None, (parse_phrase (f::t))) in
+      Paragraph ([], None, (parse_phrases (f::t))) in
   let rec next_block block_lines i =
     match Stream.peek lines, block_lines with
       | None, [] ->

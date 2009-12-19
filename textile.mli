@@ -14,7 +14,7 @@ type attr =
   | Style    of string (* p{color:red}. *)
   | Language of string (* p[fr-fr]. *)
 type phrase =
-  | CData       of string list
+  | CData       of string
   | Emphasis    of phrase (* _ *)
   | Strong      of phrase (* * *)
   | Italic      of phrase (* __ *)
@@ -26,8 +26,9 @@ type phrase =
   | Subscript   of phrase (* ~ *)
   | Span        of phrase (* % *)
   | Code        of phrase (* @ *)
-
   | Link of string * phrase
+type line =
+  phrase list
 type align =
   | Right   (* > *)
   | Left    (* < *)
@@ -37,18 +38,17 @@ type element =
   | Phrase  of phrase
   | Element of element
 type block =
-  | Header1    of (attr list * align option * phrase) (* h1. *)
-  | Header2    of (attr list * align option * phrase) (* h2. *)
-  | Header3    of (attr list * align option * phrase) (* h3. *)
-  | Blockquote of (attr list * align option * phrase) (* bq. *)
-  | Footnote   of (attr list * align option * phrase) (* fnn. *) (* FIXME *)
-  | Paragraph  of (attr list * align option * phrase) (* p. *)
-  | Blockcode  of (attr list * align option * phrase) (* bc. *)
-  | Pre        of (attr list * align option * phrase) (* pre. *)
+  | Header1    of (attr list * align option * line list) (* h1. *)
+  | Header2    of (attr list * align option * line list) (* h2. *)
+  | Header3    of (attr list * align option * line list) (* h3. *)
+  | Blockquote of (attr list * align option * line list) (* bq. *)
+  | Footnote   of (attr list * align option * line list) (* fnn. *) (* FIXME *)
+  | Paragraph  of (attr list * align option * line list) (* p. *)
+  | Blockcode  of (attr list * align option * line list) (* bc. *)
+  | Pre        of (attr list * align option * line list) (* pre. *)
   | Numlist    of element list (* # *)
   | Bulllist   of element list (* * *)
   (*| Table of FIXME *)
-
 
 val teststream: string Stream.t
 

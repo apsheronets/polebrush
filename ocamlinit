@@ -1,1 +1,1 @@
-let a = Textile.parse Textile.teststream
+let a = Textile.parse_stream Textile.teststream

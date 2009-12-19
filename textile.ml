@@ -38,14 +38,14 @@ type element =
   | Phrase  of phrase
   | Element of element
 type block =
-  | Header1    of (attr list * phrase) (* h1. *)
-  | Header2    of (attr list * phrase) (* h2. *)
-  | Header3    of (attr list * phrase) (* h3. *)
-  | Blockquote of (attr list * phrase) (* bq. *)
-  | Footnote   of (attr list * phrase) (* fnn. *) (* FIXME *)
-  | Paragraph  of (attr list * phrase) (* p. *)
-  | Blockcode  of (attr list * phrase) (* bc. *)
-  | Pre        of (attr list * phrase) (* pre. *)
+  | Header1    of (attr list * align option * phrase) (* h1. *)
+  | Header2    of (attr list * align option * phrase) (* h2. *)
+  | Header3    of (attr list * align option * phrase) (* h3. *)
+  | Blockquote of (attr list * align option * phrase) (* bq. *)
+  | Footnote   of (attr list * align option * phrase) (* fnn. *) (* FIXME *)
+  | Paragraph  of (attr list * align option * phrase) (* p. *)
+  | Blockcode  of (attr list * align option * phrase) (* bc. *)
+  | Pre        of (attr list * align option * phrase) (* pre. *)
   | Numlist    of element list (* # *)
   | Bulllist   of element list (* * *)
   (*| Table of FIXME *)
@@ -70,51 +70,61 @@ let junk n s =
     | t -> Stream.junk s; loop (t-1)
   in loop n
 
-let parse lines =
-  let parse_attrs s =
-    let rec loop acc n =
+let sub str start =
+  String.sub str start (String.length str - start)
+
+let parse_stream lines =
+  let parse_phrase s =
+    CData s in
+  let parse_lines (start:int) (constr: 'a -> block) (lines: string list) =
+    let f = List.hd lines in (* first line *)
+    let t = List.tl lines in (* all another lines *)
+    let rec loop attrs align n =
       try
-        match s.[n] with
-        | '{' ->
-            extract_attr_and_continue n '}' (fun x -> Style x) acc
-        | '(' ->
+        match f.[n], align with
+        | '{', _ ->
+            extract_attr_and_continue n '}' (fun x -> Style x) attrs align
+        | '(', _ ->
             (* FIXME: doesn't support ids *)
-            extract_attr_and_continue n ')' (fun x -> Class x) acc
-        | '[' ->
-            extract_attr_and_continue n ']' (fun x -> Language x) acc
-        |  _  -> acc
-      with Invalid_argument _ -> acc
-    and extract_attr_and_continue n c constr acc =
+            extract_attr_and_continue n ')' (fun x -> Class x) attrs align
+        | '[', _ ->
+            extract_attr_and_continue n ']' (fun x -> Language x) attrs align
+        | '<', None -> (match f.[n+1] with
+            | '>' -> loop attrs (Some Justify) (n+2)
+            |  _  -> loop attrs (Some Left) (n+1))
+        | '>', None -> loop attrs (Some Right) (n+1)
+        | '=', None -> loop attrs (Some Justify) (n+1)
+        | '.', _ -> (match f.[n+1] with
+            | ' ' -> constr (attrs, align, parse_phrase (sub f (n+2) :: t))
+            |  _  -> raise Parse_failure)
+        |  _ -> Paragraph ([], align, (parse_phrase lines))
+      with Parse_failure | Invalid_argument _ ->
+        print_endline "oh shit!";
+        Paragraph ([], align, (parse_phrase lines))
+    (* Extracts an attribute which closes by char c *)
+    and extract_attr_and_continue n c constr attrs align =
       (try
-        let e = String.index_from s (n+1) c in
-        let result = constr (String.sub s (n+1) (e-n-1)) in
-        loop (result :: acc) (e+1)
+        let e = String.index_from f (n+1) c in
+        let result = constr (String.sub f (n+1) (e-n-1)) in
+        loop (result :: attrs) align (e+1)
       with (* If we have an open parenthesis and some happened shit
         * then we stop to parse and leave string "s" as is *)
         Not_found | Invalid_argument _ -> raise Parse_failure)
-    in loop [] 0
+    in loop [] None start
   in
-  let parse_phrase s =
-    CData s in
-  let parse_block (f::t) =
-    let sub start str =
-      String.sub str start ((String.length str)-start) in
+  let parse_block lines =
+    let f = List.hd lines in (* first line *)
+    let t = List.tl lines in (* all another lines *)
     try
-    (* the first occurrence of a dot *)
-    let dot = String.index f '.' in
-    let parse_attrs_and_phrase start constr =
-      (try
-        constr (parse_attrs (String.sub f start (dot-1)), parse_phrase ((sub (dot+1) f)::t))
-      with Parse_failure ->
-        Paragraph ([] ,(parse_phrase (f::t)))) in
-    match f.[0], f.[1], f.[2] with
-      | 'h','1',_ ->
-          parse_attrs_and_phrase 2 (fun x -> Header1 x)
-      | 'p', _, _ ->
-          parse_attrs_and_phrase 1 (fun x -> Paragraph x)
-      | _ -> Paragraph ([] ,(parse_phrase (f::t)))
-    (* If there is no dots in sting *)
-    with Not_found -> Paragraph ([], (parse_phrase (f::t))) in
+      match f.[0], f.[1], f.[2] with
+        | 'h','1',_ ->
+            parse_lines 2 (fun x -> Header1 x) lines
+        | 'p', _, _ ->
+            parse_lines 1 (fun x -> Paragraph x) lines
+        | _ -> Paragraph ([], None, (parse_phrase (f::t)))
+    (* If string is too shorter *)
+    with Invalid_argument _ ->
+      Paragraph ([], None, (parse_phrase (f::t))) in
   let rec next_block block_lines i =
     match Stream.peek lines, block_lines with
       | None, [] ->

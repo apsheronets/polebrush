@@ -6,7 +6,8 @@ CAMLOPT = ocamlfind ocamlopt -thread -g $(LIB)
 CAMLDOC = ocamlfind ocamldoc $(LIB)
 CAMLDEP = ocamlfind ocamldep
 LIB = -package $(PACKAGES)
-PP = -pp "camlp4o"
+#PP = -pp "camlp4o"
+PP =
 
 OBJS = $(FILES:.ml=.cmo)
 OPTOBJS = $(FILES:.ml=.cmx)
@@ -46,10 +47,12 @@ installopt:
 	$(CAMLOPT) $(PP) -c $<
 
 doc:
-#	$(CAMLDOC) -d doc -html db.mli
+	-mkdir -p doc
+	$(CAMLDOC) -d doc -html *.mli
 
 clean:
 	-rm -f *.cm[ioxa] *.o $(CMXS) *~ $(NAME)
+	-rm -rf doc
 
 depend:
 	$(CAMLDEP) $(PP) $(LIB) $(FILES:.ml=.mli) $(FILES) > .depend

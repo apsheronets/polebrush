@@ -1,6 +1,14 @@
 h1=. A _header_ here
 So ??what's wrong??
 
+bc.. <?php
+
+echo "123";
+
+?>
+
+p. New paragraph
+
 I am *so strong and _empassing_*
 
 p{color:red}{text-decoration:underline}. ohshi __wtf__ ohshi

@@ -48,7 +48,7 @@ type phrase =
   | Subscript   of phrase list (** ~ *)
   | Span        of phrase list (** % *)
   | Code        of phrase list (** @ *)
-  | Acronym of string * string (** ABC(Always Be Closing *)
+  | Acronym of string * string (** ABC(Always Be Closing) *)
   | Link of string * phrase    (** "linktext":url *)
 
 (** One line of text. It terminates by line break character. *)

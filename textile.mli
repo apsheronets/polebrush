@@ -62,16 +62,18 @@ type align =
   | Center  (** = *)
   | Justify (** <> *)
 
+(** You have to escape symbols in Blockcode by yourself because I don't know in what format you will convert this AST! *)
 type block =
   | Header     of int * (attr list * align option * line list) (** h1. *)
   | Blockquote of (attr list * align option * line list)       (** bq. *)
-  | Footnote   of int * (attr list * align option * line list) (** fnn. *) (* FIXME *)
+  | Footnote   of int * (attr list * align option * line list) (** fnn. *)
   | Paragraph  of (attr list * align option * line list) (** p. *)
   | Blockcode  of (attr list * align option * line list) (** bc. *)
   | Pre        of (attr list * align option * line list) (** pre. *)
   | Numlist    of (attr list * align option * line list) (** # *)
   | Bulllist   of (attr list * align option * line list) (** * *)
   (*| Table of FIXME *)
+
 
 
 val parse_stream : string Stream.t -> block Stream.t

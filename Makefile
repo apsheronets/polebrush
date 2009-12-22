@@ -13,7 +13,7 @@ OBJS = $(FILES:.ml=.cmo)
 OPTOBJS = $(FILES:.ml=.cmx)
 
 CMA = textile.cma
-CMXS = textile.cmxs
+CMXA = textile.cmxa
 
 all: byte native
 
@@ -22,16 +22,18 @@ byte: depend $(CMA) install
 $(CMA): $(OBJS)
 	$(CAMLC) -a -o $(CMA) $(OBJS)
 
-native: depend $(CMXS) installopt
+native: depend $(CMXA) installopt
 
-$(CMXS): $(OPTOBJS)
-	$(CAMLOPT) -shared -o $(CMXS) $(OPTOBJS)
+$(CMXA): $(OPTOBJS)
+	$(CAMLOPT) -a -o $(CMXA) $(OPTOBJS)
 
 install:
 #	chmod a+r $(CMA)
 
+installcommon: byte doc 
+
 installopt:
-#	chmod a+r $(CMXS)
+#	chmod a+r $(CMXA)
 
 .SUFFIXES:
 .SUFFIXES: .ml .mli .cmo .cmi .cmx
@@ -51,7 +53,7 @@ doc:
 	$(CAMLDOC) -d doc -html *.mli
 
 clean:
-	-rm -f *.cm[ioxa] *.o $(CMXS) *~ $(NAME)
+	-rm -f *.cm[ioxa] *.o $(CMXA) *~ $(NAME)
 	-rm -f .depend
 	-rm -rf doc
 

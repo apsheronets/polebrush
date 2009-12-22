@@ -17,23 +17,21 @@ CMXA = textile.cmxa
 
 all: byte native
 
-byte: depend $(CMA) install
+byte: depend $(CMA)
 
 $(CMA): $(OBJS)
 	$(CAMLC) -a -o $(CMA) $(OBJS)
 
-native: depend $(CMXA) installopt
+native: depend $(CMXA)
 
 $(CMXA): $(OPTOBJS)
 	$(CAMLOPT) -a -o $(CMXA) $(OPTOBJS)
 
 install:
-#	chmod a+r $(CMA)
+	ocamlfind install textile-ocaml META *.cmi *.cma $(MLI) $(wildcard *.cmxa) $(wildcard *.a)
 
-installcommon: byte doc 
-
-installopt:
-#	chmod a+r $(CMXA)
+uninstall:
+		ocamlfind remove textile-ocaml
 
 .SUFFIXES:
 .SUFFIXES: .ml .mli .cmo .cmi .cmx
@@ -42,7 +40,6 @@ installopt:
 
 .ml.cmo:
 	$(CAMLC) $(PP) -c $<
-
 .mli.cmi:
 	$(CAMLC) -c $<
 .ml.cmx:

@@ -1,0 +1,3 @@
+version="0.01"
+archive(byte)="textile.cma"
+archive(native)="textile.cmxa"

@@ -50,7 +50,7 @@ doc:
 	$(CAMLDOC) -d doc -html *.mli
 
 clean:
-	-rm -f *.cm[ioxa] *.o $(CMXA) *~ $(NAME)
+	-rm -f *.cm[ioxa] *.o *.a $(CMXA) *~ $(NAME)
 	-rm -f .depend
 	-rm -rf doc
 

@@ -62,7 +62,9 @@ type align =
   | Center  (** = *)
   | Justify (** <> *)
 
-(** You have to escape symbols in Blockcode by yourself because I don't know in what format you will convert this AST! *)
+(** Extended blocks parse automaticly so there is no difference for you between normal and extended blocks.
+
+You have to escape symbols in Blockcode by yourself because I don't know in what format you will convert this AST! *)
 type block =
   | Header     of int * (attr list * align option * line list) (** h1. *)
   | Blockquote of (attr list * align option * line list)       (** bq. *)

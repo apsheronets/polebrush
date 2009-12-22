@@ -47,6 +47,4 @@ type block =
   (*| Table of FIXME *)
 
 
-val teststream: string Stream.t
-
 val parse_stream : string Stream.t -> block Stream.t

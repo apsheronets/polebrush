@@ -1,14 +1,5 @@
 open ExtLib
 
-(* my loveley *)
-let (@@) = List.rev_append
-let (>>) f g = g f
-
-
-(* * * * * * * * * * *
- * Type  declaration *
- * * * * * * * * * * *)
-
 type attr =
   | Class    of string (* p(myclass). *)
   | Id       of string (* p(#myid). *)
@@ -47,17 +38,6 @@ type block =
   | Bulllist   of line list (* * *)
   (*| Table of FIXME *)
 
-
-let read_file file =
-  let channel = open_in file in
-  let line_stream_of_channel channel =
-    Stream.from
-      (fun _ ->
-        try Some (input_line channel)
-        with End_of_file -> None) in
-  line_stream_of_channel channel
-
-let teststream = read_file "test.txt"
 
 exception Parse_failure
 
@@ -205,5 +185,4 @@ let parse_stream stream =
           Stream.junk stream;
           next_block (str :: block_strings) i in
   Stream.from (next_block [])
-
 

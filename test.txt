@@ -1,5 +1,5 @@
 h1=. A _header_ here
-new line
+~new line~
 
 I am *so strong and _empassing_*
 

@@ -75,18 +75,30 @@ let num_of_char c =
 
 let parse_stream stream =
   let rec line_of_string str =
+    (* Cut empty phrases *)
+    if String.length str = 0 then [] else
     let pack_cdata str start len =
-        (*print_endline str;
-        print_int start;
-        print_newline ();
-        print_int len;
-        print_newline ();*)
       CData (String.sub str start len) in
     let rec find_modifier prev_char n =
       try
         match prev_char, str.[n] with
-        | ' ', '_' ->
+        | ' ', '_' -> (* FIXME: need italic support *)
             close_modifier (n+1) (n-1) ['_'] (fun x -> Emphasis x)
+        | ' ', '*' -> (* FIXME: need bold support *)
+            close_modifier (n+1) (n-1) ['*'] (fun x -> Strong x)
+        (* FIXME: need citation support *)
+        | ' ', '-' ->
+            close_modifier (n+1) (n-1) ['-'] (fun x -> Deleted x)
+        | ' ', '+' ->
+            close_modifier (n+1) (n-1) ['+'] (fun x -> Inserted x)
+        | ' ', '^' -> (* FIXME: is it a good implementation? *)
+            close_modifier (n+1) (n-1) ['^'] (fun x -> Superscript x)
+        | ' ', '~' ->
+            close_modifier (n+1) (n-1) ['~'] (fun x -> Subscript x)
+        | ' ', '%' ->
+            close_modifier (n+1) (n-1) ['%'] (fun x -> Span x)
+        | ' ', '@' ->
+            close_modifier (n+1) (n-1) ['@'] (fun x -> Code x)
         | _, c -> find_modifier c (n+1)
       (* If we have passed whole string without any modifier
        * then we simply pack it in CData *)
@@ -100,7 +112,6 @@ let parse_stream stream =
           match str.[n], clist with
           | c, [h]  when c = h ->
               (* PLEASE FIXME *)
-              print_endline "хуй";
               pack_cdata str 0 (eoll+1)
               :: constr (line_of_string (
                 String.sub str start (n + 1 - start - (List.length clist))
@@ -113,8 +124,8 @@ let parse_stream stream =
           | _ -> loop clist (n+1)
         with Invalid_argument _ -> (*CData str (* FIXME *)*)
           match char_list with
-          (* This branch ... *)
-          (*| [] -> *)
+          (* This branch ... *) (* Goddamn, FOR WHAT did I create *)
+          (*| [] -> *)          (* this branch? *)
           (* FAIL *)
           | _  -> find_modifier str.[start-1] start in
       loop char_list start in

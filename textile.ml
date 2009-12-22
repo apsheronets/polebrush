@@ -136,8 +136,10 @@ let parse_stream stream =
           | _  -> find_modifier str.[start-1] start in
       loop char_list start in
     find_modifier ' ' 0 in
+
   let line_of_string str =
     [CData str] in
+
   let get_lines f start parsing_func =
     let rec loop acc =
       try
@@ -153,7 +155,7 @@ let parse_stream stream =
     loop [first_line] in
 
   (* get lines for extended block *)
-  let rec get_extended_lines f start parsing_func =
+  let rec get_extended_lines fstr start parsing_func =
     let rec loop acc =
       try
         let str = Stream.next stream in
@@ -172,18 +174,18 @@ let parse_stream stream =
             loop (result::acc)
       with Stream.Failure -> List.rev acc in
     let first_line =
-      parsing_func (String.sub f start ((String.length f) - start)) in
+      parsing_func (String.sub fstr start ((String.length fstr) - start)) in
     loop [first_line]
 
   (* returns None if there are no valid block modifier here
    * or Some turple which contains:
-     * function which returns a block,
-     * starting position to parse the first string of block (excluding
-       modifier),
-     * function which returns a line *)
-  and get_block_modifier f =
+   * 1) function which returns a block,
+   * 2) starting position to parse the first string of block (excluding
+        modifier),
+   * 3) function which returns a line *)
+  and get_block_modifier fstr =
     try
-      match f.[0], f.[1], f.[2] with
+      match fstr.[0], fstr.[1], fstr.[2] with
         (* Headers  *)
         | 'h', c,  _
           when (let n = num_of_char c in
@@ -195,12 +197,12 @@ let parse_stream stream =
             (* It just works *)
             let check x = (x >= 0) && (x <= 9) in
             let rec loop acc n =
-              let num = num_of_char f.[n] in
+              let num = num_of_char fstr.[n] in
               if check num
               then loop ((acc*10)+num) (n+1)
               else
                 Some ((fun x -> Footnote (acc, x)), n, parse_string) in
-            let num = num_of_char f.[2] in
+            let num = num_of_char fstr.[2] in
             if check num
             then loop num 3
             else None
@@ -214,10 +216,11 @@ let parse_stream stream =
     with
       (* If our string is too shorter... *)
       | Invalid_argument _ -> None in
-  let get_attrs_and_align f start =
+
+  let get_attrs_and_align fstr start =
     let rec loop attrs align n =
       try
-        match f.[n], align with
+        match fstr.[n], align with
         | '{', _ ->
             extract_attr_and_continue n '}' (fun x -> Style x) attrs align
         | '(', _ ->
@@ -225,14 +228,14 @@ let parse_stream stream =
             extract_attr_and_continue n ')' (fun x -> Class x) attrs align
         | '[', _ ->
             extract_attr_and_continue n ']' (fun x -> Language x) attrs align
-        | '<', None -> (match f.[n+1] with
+        | '<', None -> (match fstr.[n+1] with
             | '>' -> loop attrs (Some Justify) (n+2)
             |  _  -> loop attrs (Some Left) (n+1))
         | '>', None -> loop attrs (Some Right) (n+1)
         | '=', None -> loop attrs (Some Justify) (n+1)
-        | '.', _ -> (match f.[n+1] with
+        | '.', _ -> (match fstr.[n+1] with
             | ' ' -> get_lines, (attrs, align), (n+2)
-            | '.' -> (match f.[n+2] with
+            | '.' -> (match fstr.[n+2] with
                 | ' ' -> get_extended_lines, (attrs, align), (n+2)
                 |  _  -> raise Parse_failure)
             |  _  -> raise Parse_failure)
@@ -243,34 +246,38 @@ let parse_stream stream =
     (* Extracts an attribute which closes by char c *)
     and extract_attr_and_continue n c constr attrs align =
       (try
-        let e = String.index_from f (n+1) c in
-        let result = constr (String.sub f (n+1) (e-n-1)) in
+        let e = String.index_from fstr (n+1) c in
+        let result = constr (String.sub fstr (n+1) (e-n-1)) in
         loop (result :: attrs) align (e+1)
       with
        (* If we have an open parenthesis and some happened shit
         * then we stop to parse and leave string "s" as is *)
         Not_found | Invalid_argument _ -> raise Parse_failure)
     in loop [] None start in
-  let get_block_constr f =
-    match get_block_modifier f with
+
+  let get_block_constr fstr =
+    match get_block_modifier fstr with
     | Some (block_modifier, i, parsing_func) ->
         (try
-          let get_func, (attrs, align), start = get_attrs_and_align f i in
+          let get_func, (attrs, align), start = get_attrs_and_align fstr i in
           get_func, (fun x -> block_modifier (attrs, align, x)),
             start, parsing_func
         with Parse_failure ->
           get_lines, (fun x -> Paragraph ([], None, x)), 0, parse_string)
     | None ->
         get_lines, (fun x -> Paragraph ([], None, x)), 0, parse_string in
-  let get_block f =
-    let get_func, constr, start, parsing_func = get_block_constr f in
-    (constr (get_func f start parsing_func)) in
+
+  let get_block fstr =
+    let get_func, constr, start, parsing_func = get_block_constr fstr in
+    (constr (get_func fstr start parsing_func)) in
+
   let rec next_block () =
     try
       let first_string = Stream.next stream in
       match first_string with
-      | "" -> next_block () (* empty line in the beginning of block *)
-      | f  -> Some (get_block f)
+      |  ""  -> next_block () (* empty line in the beginning of block *)
+      | fstr -> Some (get_block fstr)
     with Stream.Failure -> None in
+
   Stream.from (fun _ -> next_block ())
 

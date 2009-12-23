@@ -1,6 +1,7 @@
 PACKAGES = extlib
 FILES = textile.ml
 
+LIBNAME = textile
 CAMLC = ocamlfind ocamlc -thread -g $(LIB)
 CAMLOPT = ocamlfind ocamlopt -thread -g $(LIB)
 CAMLDOC = ocamlfind ocamldoc $(LIB)
@@ -28,10 +29,10 @@ $(CMXA): $(OPTOBJS)
 	$(CAMLOPT) -a -o $(CMXA) $(OPTOBJS)
 
 install:
-	ocamlfind install textile-ocaml META *.cmi *.cma $(MLI) $(wildcard *.cmxa) $(wildcard *.a)
+	ocamlfind install $(LIBNAME) META *.cmi *.cma $(MLI) $(wildcard *.cmxa) $(wildcard *.a)
 
 uninstall:
-		ocamlfind remove textile-ocaml
+	ocamlfind remove $(LIBNAME)
 
 .SUFFIXES:
 .SUFFIXES: .ml .mli .cmo .cmi .cmx

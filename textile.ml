@@ -55,6 +55,14 @@ type block =
   | Bulllist   of (attr list * align option * line list) (** * *)
   (*| Table of FIXME *)
 
+(* Raises if there is any trouble in an internal parsing function.
+ *
+ * For example, it raises when function which returns attributes of a block
+ * tries to extract it from block which haven't correctly specified
+ * attributes. In other words, get_attrs "p{color:reOHSHI." should raise
+ * Parse_failure since there are no correct attributes in that string.
+ *
+ * This is internal exception. It should be ever catched inside module. *)
 exception Parse_failure
 
 let num_of_char c =
@@ -179,10 +187,10 @@ let parse_stream stream =
 
   (* returns None if there are no valid block modifier here
    * or Some turple which contains:
-   * 1) function which returns a block,
-   * 2) starting position to parse the first string of block (excluding
-        modifier),
-   * 3) function which returns a line *)
+    * function which contains block constructor and returns a block,
+    * starting position to parse the first string of block (excluding
+      modifier),
+    * function which returns a line *)
   and get_block_modifier fstr =
     try
       match fstr.[0], fstr.[1], fstr.[2] with
@@ -194,7 +202,8 @@ let parse_stream stream =
         | 'b','q', _  ->
             Some ((fun x -> Blockquote x), 2, parse_string)
         | 'f','n', c  ->
-            (* It just works *)
+            (* It just works
+             * I don't know how *)
             let check x = (x >= 0) && (x <= 9) in
             let rec loop acc n =
               let num = num_of_char fstr.[n] in
@@ -238,7 +247,7 @@ let parse_stream stream =
             | '.' -> (match fstr.[n+2] with
                 | ' ' -> get_extended_lines, (attrs, align), (n+2)
                 |  _  -> raise Parse_failure)
-            |  _  -> raise Parse_failure)
+            |  _  -> raise Parse_failure) (* whitespace required *)
         |  _ -> raise Parse_failure
       (* If we have passed the whole string and haven't found a dot *)
       with Invalid_argument _ ->
@@ -255,22 +264,30 @@ let parse_stream stream =
         Not_found | Invalid_argument _ -> raise Parse_failure)
     in loop [] None start in
 
+  (* Returns:
+    * function which will be used for getting lines for block
+      (first string) position (string -> line) -> lines list,
+    * function contained constructor, attributes and alignment
+      (line list -> block),
+    * position in first string after end of metadata,
+    * function which will be used for line parsing (string -> line) *)
   let get_block_constr fstr =
+    let default_constr =
+      get_lines, (fun x -> Paragraph ([], None, x)), 0, parse_string in
     match get_block_modifier fstr with
     | Some (block_modifier, i, parsing_func) ->
         (try
           let get_func, (attrs, align), start = get_attrs_and_align fstr i in
           get_func, (fun x -> block_modifier (attrs, align, x)),
             start, parsing_func
-        with Parse_failure ->
-          get_lines, (fun x -> Paragraph ([], None, x)), 0, parse_string)
-    | None ->
-        get_lines, (fun x -> Paragraph ([], None, x)), 0, parse_string in
+        with Parse_failure -> default_constr)
+    | None -> default_constr in
 
   let get_block fstr =
     let get_func, constr, start, parsing_func = get_block_constr fstr in
     (constr (get_func fstr start parsing_func)) in
 
+  (* Returns (Some block) or None if it's end of stream *)
   let rec next_block () =
     try
       let first_string = Stream.next stream in

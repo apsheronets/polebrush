@@ -218,7 +218,7 @@ let parse_stream stream =
         | 'b','c', _  ->
             Some ((fun x -> Blockcode x), 2, line_of_string)
         | 'p','r','e' ->
-            Some ((fun x -> Pre x), 2, parse_string)
+            Some ((fun x -> Pre x), 2, line_of_string)
         | 'p', _,  _  ->
             Some ((fun x -> Paragraph x), 1, parse_string)
         | _ -> None

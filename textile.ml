@@ -271,28 +271,17 @@ let parse_stream stream =
         Not_found | Invalid_argument _ -> raise Parse_failure)
     in loop [] None start in
 
-  (* Returns:
-    * function which will be used for getting lines for block
-      (first string) position (string -> line) -> lines list,
-    * function contained constructor, attributes and alignment
-      (line list -> block),
-    * position in first string after end of metadata,
-    * function which will be used for line parsing (string -> line) *)
-  let get_block_constr fstr =
-    let default_constr =
-      get_lines, (fun x -> Paragraph (([], None), x)), 0, parse_string in
+  let get_block fstr =
+    let default () =
+      Paragraph (([], None), get_lines fstr 0 parse_string) in
     match get_block_modifier fstr with
     | Some (block_modifier, i, parsing_func) ->
         (try
           let get_func, options, start = get_attrs_and_align fstr i in
-          get_func, (fun x -> block_modifier (options, x)),
-            start, parsing_func
-        with Parse_failure -> default_constr)
-    | None -> default_constr in
+          (block_modifier (options, get_func fstr start parsing_func))
+        with Parse_failure -> default ())
+    | None -> default () in
 
-  let get_block fstr =
-    let get_func, constr, start, parsing_func = get_block_constr fstr in
-    (constr (get_func fstr start parsing_func)) in
 
   (* Returns (Some block) or None if it's end of stream *)
   let rec next_block () =

@@ -24,19 +24,19 @@ type attr =
   | Language of string (* p[fr-fr]. *)
 type phrase =
   | CData       of string
-  | Emphasis    of phrase list (* _ *)
-  | Strong      of phrase list (* * *)
-  | Italic      of phrase list (* __ *)
-  | Bold        of phrase list (* ** *)
-  | Citation    of phrase list (* ?? *)
-  | Deleted     of phrase list (* - *)
-  | Inserted    of phrase list (* + *)
-  | Superscript of phrase list (* ^ *)
-  | Subscript   of phrase list (* ~ *)
-  | Span        of phrase list (* % *)
-  | Code        of phrase list (* @ *)
-  | Acronym of string * string (* ABC(Always Be Closing *)
-  | Link of string * phrase    (* "linktext":url *)
+  | Emphasis    of phrase list   (* _ *)
+  | Strong      of phrase list   (* * *)
+  | Italic      of phrase list   (* __ *)
+  | Bold        of phrase list   (* ** *)
+  | Citation    of phrase list   (* ?? *)
+  | Deleted     of phrase list   (* - *)
+  | Inserted    of phrase list   (* + *)
+  | Superscript of phrase list   (* ^ *)
+  | Subscript   of phrase list   (* ~ *)
+  | Span        of phrase list   (* % *)
+  | Code        of phrase list   (* @ *)
+  | Acronym of string * string   (* ABC(Always Be Closing *)
+  | Link of string * phrase list (* "linktext":url *)
 type line =
   phrase list
 type align =
@@ -231,12 +231,15 @@ let parse_stream stream =
       try
         match fstr.[n], align with
         | '{', _ ->
-            extract_attr_and_continue n '}' (fun x -> Style x) attrs align
+            extr_attr_and_cont n '}' (fun x -> Style x) attrs align
         | '(', _ ->
-            (* FIXME: doesn't support ids *)
-            extract_attr_and_continue n ')' (fun x -> Class x) attrs align
+            (match fstr.[n+1] with
+            | '#' ->
+              extr_attr_and_cont (n+1) ')' (fun x -> Id x) attrs align
+            |  _  ->
+              extr_attr_and_cont n ')' (fun x -> Class x) attrs align)
         | '[', _ ->
-            extract_attr_and_continue n ']' (fun x -> Language x) attrs align
+            extr_attr_and_cont n ']' (fun x -> Language x) attrs align
         | '<', None -> (match fstr.[n+1] with
             | '>' -> loop attrs (Some Justify) (n+2)
             |  _  -> loop attrs (Some Left) (n+1))
@@ -253,7 +256,7 @@ let parse_stream stream =
       with Invalid_argument _ ->
         raise Parse_failure
     (* Extracts an attribute which closes by char c *)
-    and extract_attr_and_continue n c constr attrs align =
+    and extr_attr_and_cont n c constr attrs align =
       (try
         let e = String.index_from fstr (n+1) c in
         let result = constr (String.sub fstr (n+1) (e-n-1)) in

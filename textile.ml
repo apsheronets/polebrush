@@ -150,7 +150,8 @@ let parse_stream stream =
   let line_of_string str =
     [CData str] in
 
-  let get_lines f start parsing_func =
+  (* string -> int -> (string -> 'a) -> 'a list *)
+  let get_lines fstr start parsing_func =
     let rec loop acc =
       try
         let str = Stream.next stream in
@@ -161,10 +162,11 @@ let parse_stream stream =
             loop (result::acc)
       with Stream.Failure -> List.rev acc in
     let first_line =
-      parsing_func (String.sub f start ((String.length f) - start)) in
+      parsing_func (String.sub fstr start ((String.length fstr) - start)) in
     loop [first_line] in
 
   (* get lines for extended block *)
+  (* string -> int -> (string -> 'a) -> 'a list *)
   let rec get_extended_lines fstr start parsing_func =
     let rec loop acc =
       try
@@ -282,8 +284,8 @@ let parse_stream stream =
     match get_block_modifier fstr with
     | Some (block_modifier, i, parsing_func) ->
         (try
-          let get_func, (attrs, align), start = get_attrs_and_align fstr i in
-          get_func, (fun x -> block_modifier ((attrs, align), x)),
+          let get_func, options, start = get_attrs_and_align fstr i in
+          get_func, (fun x -> block_modifier (options, x)),
             start, parsing_func
         with Parse_failure -> default_constr)
     | None -> default_constr in

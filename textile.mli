@@ -62,20 +62,22 @@ type align =
   | Center  (** = *)
   | Justify (** <> *)
 
+type options =
+  attr list * align option
+
 (** Extended blocks parse automaticly so there is no difference for you between normal and extended blocks.
 
 You have to escape symbols in Blockcode by yourself because I don't know in what format you will convert this AST! *)
 type block =
-  | Header     of int * (attr list * align option * line list) (** h1. *)
-  | Blockquote of (attr list * align option * line list)       (** bq. *)
-  | Footnote   of int * (attr list * align option * line list) (** fnn. *)
-  | Paragraph  of (attr list * align option * line list) (** p. *)
-  | Blockcode  of (attr list * align option * line list) (** bc. *)
-  | Pre        of (attr list * align option * line list) (** pre. *)
-  | Numlist    of (attr list * align option * line list) (** # *)
-  | Bulllist   of (attr list * align option * line list) (** * *)
+  | Header     of int * (options * line list) (** h1. *)
+  | Blockquote of (options * line list)       (** bq. *)
+  | Footnote   of int * (options * line list) (** fnn. *)
+  | Paragraph  of (options * line list) (** p. *)
+  | Blockcode  of (options * line list) (** bc. *)
+  | Pre        of (options * line list) (** pre. *)
+  | Numlist    of (options * line list) (** # *)
+  | Bulllist   of (options * line list) (** * *)
   (*| Table of FIXME *)
-
 
 
 val parse_stream : string Stream.t -> block Stream.t

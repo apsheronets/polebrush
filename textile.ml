@@ -44,15 +44,17 @@ type align =
   | Left    (* < *)
   | Center  (* = *)
   | Justify (* <> *)
+type options =
+  attr list * align option
 type block =
-  | Header     of int * (attr list * align option * line list) (** h1. *)
-  | Blockquote of (attr list * align option * line list)       (** bq. *)
-  | Footnote   of int * (attr list * align option * line list) (** fnn. *)
-  | Paragraph  of (attr list * align option * line list) (** p. *)
-  | Blockcode  of (attr list * align option * line list) (** bc. *)
-  | Pre        of (attr list * align option * line list) (** pre. *)
-  | Numlist    of (attr list * align option * line list) (** # *)
-  | Bulllist   of (attr list * align option * line list) (** * *)
+  | Header     of int * (options * line list) (** h1. *)
+  | Blockquote of (options * line list)       (** bq. *)
+  | Footnote   of int * (options * line list) (** fnn. *)
+  | Paragraph  of (options * line list) (** p. *)
+  | Blockcode  of (options * line list) (** bc. *)
+  | Pre        of (options * line list) (** pre. *)
+  | Numlist    of (options * line list) (** # *)
+  | Bulllist   of (options * line list) (** * *)
   (*| Table of FIXME *)
 
 (* Raises if there is any trouble in an internal parsing function.
@@ -276,12 +278,12 @@ let parse_stream stream =
     * function which will be used for line parsing (string -> line) *)
   let get_block_constr fstr =
     let default_constr =
-      get_lines, (fun x -> Paragraph ([], None, x)), 0, parse_string in
+      get_lines, (fun x -> Paragraph (([], None), x)), 0, parse_string in
     match get_block_modifier fstr with
     | Some (block_modifier, i, parsing_func) ->
         (try
           let get_func, (attrs, align), start = get_attrs_and_align fstr i in
-          get_func, (fun x -> block_modifier (attrs, align, x)),
+          get_func, (fun x -> block_modifier ((attrs, align), x)),
             start, parsing_func
         with Parse_failure -> default_constr)
     | None -> default_constr in

@@ -64,7 +64,7 @@ type block =
  * attributes. In other words, get_attrs "p{color:reOHSHI." should raise
  * Parse_failure since there are no correct attributes in that string.
  *
- * This is internal exception. It should be ever catched inside module. *)
+ * This is internal exception. It should ever be catched inside module. *)
 exception Parse_failure
 
 let num_of_char c =

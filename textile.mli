@@ -72,11 +72,11 @@ type block =
   | Header     of int * (options * line list) (** h1. *)
   | Blockquote of (options * line list)       (** bq. *)
   | Footnote   of int * (options * line list) (** fnn. *)
-  | Paragraph  of (options * line list) (** p. *)
-  | Blockcode  of (options * line list) (** bc. *)
-  | Pre        of (options * line list) (** pre. *)
-  | Numlist    of (options * line list) (** # *)
-  | Bulllist   of (options * line list) (** * *)
+  | Paragraph  of (options * line list)   (** p. *)
+  | Blockcode  of (options * string list) (** bc. *)
+  | Pre        of (options * string list) (** pre. *)
+  | Numlist    of (options * line list)   (** # *)
+  | Bulllist   of (options * line list)   (** * *)
   (*| Table of FIXME *)
 
 

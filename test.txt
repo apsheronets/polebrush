@@ -1,4 +1,4 @@
-p. Paragraph.
+p))=([ru-ru]. Paragraph.
 
 p.. Another.
 

@@ -55,6 +55,9 @@ type phrase =
 type line =
   phrase list
 
+type row =
+  line list
+
 (** Alignment option. *)
 type align =
   | Right   (** > *)
@@ -62,8 +65,13 @@ type align =
   | Center  (** = *)
   | Justify (** <> *)
 
+(** Left and right padding consistently. Define with ( and ) in block
+modifier *)
+type padding =
+  int * int
+
 type options =
-  attr list * align option
+  attr list * align option * padding
 
 (** Extended blocks parse automaticly so there is no difference for you between normal and extended blocks.
 
@@ -77,7 +85,7 @@ type block =
   | Pre        of (options * string list) (** pre. *)
   | Numlist    of (options * line list)   (** # *)
   | Bulllist   of (options * line list)   (** * *)
-  (*| Table of FIXME *)
+  | Table      of (options * row list)    (** |one|two|three| *)
 
 
 val parse_stream : string Stream.t -> block Stream.t

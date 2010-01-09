@@ -39,13 +39,17 @@ type phrase =
   | Link of string * string      (* "linktext":url *)
 type line =
   phrase list
+type row =
+  line list
 type align =
-  | Right   (* > *)
-  | Left    (* < *)
-  | Center  (* = *)
-  | Justify (* <> *)
+  | Right   (** > *)
+  | Left    (** < *)
+  | Center  (** = *)
+  | Justify (** <> *)
+type padding =
+  int * int
 type options =
-  attr list * align option
+  attr list * align option * padding
 type block =
   | Header     of int * (options * line list) (** h1. *)
   | Blockquote of (options * line list)       (** bq. *)
@@ -55,10 +59,12 @@ type block =
   | Pre        of (options * string list) (** pre. *)
   | Numlist    of (options * line list)   (** # *)
   | Bulllist   of (options * line list)   (** * *)
-  (*| Table of FIXME *)
+  | Table      of (options * row list)    (** |one|two|three| *)
 
-
+(* This is internal exceptions. They must be even catched
+ * inside the module *)
 exception Invalid_block_modifier
+exception Invalid_attribute
 
 let num_of_char c =
   (int_of_char c) - 48
@@ -152,45 +158,64 @@ let parse_stream stream =
     find_modifier ' ' 0 in
 
   let get_options fstr start =
-    let rec loop attrs align n =
+    let rec loop ((attrs, align, ((leftpad, rightpad) as padding)) as options) n =
       try
-        match fstr.[n], align with
-        | '{', _ ->
-            extr_attr_and_cont n '}' (fun x -> Style x) attrs align
-        | '(', _ ->
-            (match fstr.[n+1] with
-            | '#' ->
-              extr_attr_and_cont (n+1) ')' (fun x -> Id x) attrs align
-            |  _  ->
-              extr_attr_and_cont n ')' (fun x -> Class x) attrs align)
-        | '[', _ ->
-            extr_attr_and_cont n ']' (fun x -> Language x) attrs align
-        | '<', None -> (match fstr.[n+1] with
-            | '>' -> loop attrs (Some Justify) (n+2)
-            |  _  -> loop attrs (Some Left) (n+1))
-        | '>', None -> loop attrs (Some Right) (n+1)
-        | '=', None -> loop attrs (Some Justify) (n+1)
-        | '.', _ -> (match fstr.[n+1] with
-            | ' ' -> false, (attrs, align), (n+2)
+        match fstr.[n], align, padding with
+
+        (* Style *)
+        | '{', _, _ ->
+            extr_attr_and_cont n '}' (fun x -> Style x) options
+
+        (* This may be a class, an id or left padding *)
+        | '(', _, _ ->
+            (try
+              match fstr.[n+1] with
+              | '#' ->
+                extr_attr_and_cont (n+1) ')' (fun x -> Id x) options
+              |  _  ->
+                extr_attr_and_cont n ')' (fun x -> Class x) options
+            with
+              (* If it's not an attribute
+               * then try to parse as left alignment *)
+              | Invalid_attribute ->
+                  loop (attrs, align, (leftpad+1, rightpad)) (n+1))
+
+        (* Language *)
+        | '[', _, _ ->
+            extr_attr_and_cont n ']' (fun x -> Language x) options
+
+        (* Right padding *)
+        | ')', _, _ ->
+            loop (attrs, align, (leftpad, rightpad+1)) (n+1)
+
+        (* Alignment *)
+        | '<', None, _ -> (match fstr.[n+1] with
+            | '>' -> loop (attrs, (Some Justify), padding) (n+2)
+            |  _  -> loop (attrs, (Some Left), padding) (n+1))
+        | '>', None, _ -> loop (attrs, (Some Right), padding) (n+1)
+        | '=', None, _ -> loop (attrs, (Some Justify), padding) (n+1)
+
+        (* End of options *)
+        | '.', _, _ -> (match fstr.[n+1] with
+            | ' ' -> false, options, (n+2)
             | '.' -> (match fstr.[n+2] with
-                | ' ' -> true, (attrs, align), (n+2)
+                | ' ' -> true, options, (n+2)
                 |  _  -> raise Invalid_block_modifier)
             |  _  -> raise Invalid_block_modifier) (* whitespace required *)
         |  _ -> raise Invalid_block_modifier
       (* If we have passed the whole string and haven't found a dot *)
-      with Invalid_argument _ ->
+      with Invalid_argument _ | Invalid_attribute ->
         raise Invalid_block_modifier
     (* Extracts an attribute which closes by char c *)
-    and extr_attr_and_cont n c constr attrs align =
+    and extr_attr_and_cont n c constr (attrs, align, padding) =
       (try
         let e = String.index_from fstr (n+1) c in
         let result = constr (String.sub fstr (n+1) (e-n-1)) in
-        loop (result :: attrs) align (e+1)
+        loop ((result :: attrs), align, padding) (e+1)
       with
-       (* If we have an open parenthesis and some happened shit
-        * then we stop to parse and leave string "s" as is *)
-        Not_found | Invalid_argument _ -> raise Invalid_block_modifier)
-    in loop [] None start in
+       (* If we have an open parenthesis and some happened shit *)
+        Not_found | Invalid_argument _ -> raise Invalid_attribute)
+    in loop ([], None, (0,0)) start in
 
   let get_block_modifier fstr =
     let options =
@@ -266,7 +291,7 @@ let parse_stream stream =
         | BNumlist    -> Numlist      (options, get_lines ())
         | BBulllist   -> Bulllist     (options, get_lines ()))
     | None ->
-        Paragraph (([], None), get_func parse_string fstr false 0) in
+        Paragraph (([], None, (0,0)), get_func parse_string fstr false 0) in
 
   let next_block () =
     try

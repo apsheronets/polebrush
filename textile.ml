@@ -36,7 +36,7 @@ type phrase =
   | Span        of phrase list   (* % *)
   | Code        of phrase list   (* @ *)
   | Acronym of string * string   (* ABC(Always Be Closing *)
-  | Link of string * phrase list (* "linktext":url *)
+  | Link of string * string      (* "linktext":url *)
 type line =
   phrase list
 type align =

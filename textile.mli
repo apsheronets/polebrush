@@ -49,7 +49,7 @@ type phrase =
   | Span        of phrase list   (** % *)
   | Code        of phrase list   (** @ *)
   | Acronym of string * string   (** ABC(Always Be Closing) *)
-  | Link of string * phrase list (** "linktext":url *)
+  | Link of string * string      (** "linktext":url *)
 
 (** One line of text. It terminates by line break character. *)
 type line =
@@ -67,7 +67,7 @@ type options =
 
 (** Extended blocks parse automaticly so there is no difference for you between normal and extended blocks.
 
-You have to escape symbols in Blockcode by yourself because I don't know in what format you will convert this AST! *)
+You have to escape symbols in Blockcode and Pre by yourself because I don't know in what format will you convert the AST! *)
 type block =
   | Header     of int * (options * line list) (** h1. *)
   | Blockquote of (options * line list)       (** bq. *)

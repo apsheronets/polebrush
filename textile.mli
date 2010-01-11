@@ -55,23 +55,42 @@ type phrase =
 type line =
   phrase list
 
-type row =
-  line list
-
 (** Alignment option. *)
-type align =
+type talign =
   | Right   (** > *)
   | Left    (** < *)
   | Center  (** = *)
   | Justify (** <> *)
 
-(** Left and right padding consistently. Define with ( and ) in block
-modifier *)
+type valign =
+  | Top    (** ^ *)
+  | Middle (** - *)
+  | Bottom (** ~ *)
+
+(** Left and right padding consistently. Define with ( and ) in block modifier *)
 type padding =
   int * int
 
 type options =
-  attr list * align option * padding
+  attr list * talign option * padding
+
+type cellspan =
+  int option * int option
+
+(** Table specific options. May be applied to a table, a row or a cell *)
+type tableoptions =
+  attr list * talign option * valign option
+
+type celltype =
+  | Data
+  | Head
+
+type cell =
+  (celltype * tableoptions * cellspan) * line list
+
+type row =
+  tableoptions * cell list
+
 
 (** Extended blocks parse automaticly so there is no difference for you between normal and extended blocks.
 
@@ -80,12 +99,12 @@ type block =
   | Header     of int * (options * line list) (** h1. *)
   | Blockquote of (options * line list)       (** bq. *)
   | Footnote   of int * (options * line list) (** fnn. *)
-  | Paragraph  of (options * line list)   (** p. *)
-  | Blockcode  of (options * string list) (** bc. *)
-  | Pre        of (options * string list) (** pre. *)
-  | Numlist    of (options * line list)   (** # *)
-  | Bulllist   of (options * line list)   (** * *)
-  | Table      of (options * row list)    (** |one|two|three| *)
+  | Paragraph  of (options * line list)     (** p. *)
+  | Blockcode  of (options * string list)   (** bc. *)
+  | Pre        of (options * string list)   (** pre. *)
+  | Numlist    of (options * line list)     (** # *)
+  | Bulllist   of (options * line list)     (** * *)
+  | Table      of (tableoptions * row list) (** |t|a|b|l|e| *)
 
 
 val parse_stream : string Stream.t -> block Stream.t

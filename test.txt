@@ -1,4 +1,13 @@
+|one|two|
+|three|four|
+
 p))=([ru-ru]. Paragraph.
+
+fn10. Footnote 10.
+
+fn1. Footnote 1.
+
+fn010. Footnote 010.
 
 p.. Another.
 

@@ -78,10 +78,24 @@ type block =
  * inside the module *)
 exception Invalid_modifier
 exception Invalid_attribute
+exception Invalid_table
 exception Invalid_row
+exception Invalid_cell
 
 let num_of_char c =
   (int_of_char c) - 48
+
+let rec njunk stream n =
+  if n > 0
+  then
+    (Stream.junk stream;
+    njunk stream (n-1))
+  else ()
+
+let rec peekn stream n =
+  let l = Stream.npeek (n+1) stream in
+  try Some (List.nth l n)
+  with Failure _ -> None
 
 type block_modifier =
   | BHeader     of int * (options * (bool * int))
@@ -94,6 +108,11 @@ type block_modifier =
   | BBulllist   of (options * (bool * int))
   | TableWithAttrs of (celltype * tableoptions * int)
   | TableWithoutAttrs
+type params_set =
+  | TableParams
+  | CellParams (* or row*)
+  | BlockParams
+  | PhraseParams
 
 let parse_stream stream =
 
@@ -264,28 +283,59 @@ let parse_stream stream =
         Not_found | Invalid_argument _ -> raise Invalid_attribute)
     in loop ([], None, (0,0), None, Data, (None, None)) start in
 
-  let parse_row str start =
+  let get_rows fstr =
     let rowoptions = ([], None, None) in
     let celloptions = (Data, ([], None, None), (None, None)) in
-    let rec loop acc start n =
-      match str.[n] with
-      | '|' ->
-          let cellstr = String.sub str (start) (n - start) in
-          let celllines = [parse_string cellstr] in
-          let cell = (celloptions, celllines) in
-          if ((String.length str) - 1) > n
-          then loop (cell::acc) (n+1) (n+1)
-          else (rowoptions, List.rev (cell::acc))
-      |  _  ->
-          loop acc start (n+1) in
-    try
-      loop [] start start
-    with
-      | Invalid_argument _ -> raise Invalid_row in
-
-  let get_rows fstr =
-    let row = parse_row fstr 1 in
-    [row] in
+    let get_celllines str peeks start =
+      let rec loop str acc peeks start n =
+        try
+          match str.[n] with
+          | '|' ->
+              let cellstring = String.sub str (start) (n - start) in
+              let cellline = parse_string cellstring in
+              Some (List.rev (cellline::acc), str, peeks, (n+1))
+          |  _  ->
+              loop str acc peeks start (n+1)
+        with Invalid_argument _ ->
+          (match n with
+          | 0 -> raise Invalid_row
+          | n when start = n -> None
+          | n ->
+              let cellstring = String.sub str (start) (n - start) in
+              let cellline = parse_string cellstring in
+              (match peekn stream peeks with
+              | Some nextstr ->
+                  loop nextstr (cellline::acc) (peeks+1) 0 0
+              | None -> raise Invalid_row)) in
+      loop str [] peeks start start in
+    let get_row str peeks =
+      let rec loop str acc peeks start =
+        (match get_celllines str peeks start with
+        | Some (celllines, str, peeks, start) ->
+            loop str ((celloptions, celllines)::acc) peeks start
+        | None ->
+            njunk stream peeks;
+            List.rev acc) in
+      loop str [] peeks 1 in
+    let rec loop acc str peeks =
+      try
+        let row = (rowoptions, get_row str peeks) in
+        (match Stream.peek stream with
+        | Some nextstr ->
+            if String.length nextstr > 0
+            then
+              (match nextstr.[0] with
+              | '|' ->
+                  loop (row::acc) nextstr 1
+              |  _  -> List.rev acc)
+            else List.rev (row::acc)
+        | None -> List.rev acc)
+      with Invalid_row ->
+        match acc with
+        | [] -> raise Invalid_table
+        | _  -> List.rev acc in
+    loop [] fstr 0 in
+(*    [(rowoptions, get_row fstr)] in*)
 
   let get_block_modifier fstr =
     let options start =
@@ -360,28 +410,32 @@ let parse_stream stream =
   let get_block fstr =
     match get_block_modifier fstr with
     | Some (block_modifier) ->
-        let get_lines (is_ext, start) =
-          get_func parse_string fstr is_ext start in
-        let get_strings (is_ext, start) =
-          get_func (fun x -> x) fstr is_ext start in
-        (match block_modifier with
-        | BHeader (n, (o, t)) -> Header (n, (o, get_lines t))
-        | BBlockquote (o, t)  -> Blockquote (o, get_lines t)
-        | BFootnote (n, (o, t)) -> Footnote (n, (o, get_lines t))
-        | BParagraph (o, t) -> Paragraph    (o, get_lines t)
-        | BBlockcode (o, t) -> Blockcode    (o, get_strings t)
-        | BPre       (o, t) -> Pre          (o, get_strings t)
-        | BNumlist   (o, t) -> Numlist      (o, get_lines t)
-        | BBulllist  (o, t) -> Bulllist     (o, get_lines t)
-        | TableWithAttrs (ct, t, s) -> raise Invalid_modifier
-        | TableWithoutAttrs -> Table (([], None, None), get_rows fstr))
+        (try
+          let get_lines (is_ext, start) =
+            get_func parse_string fstr is_ext start in
+          let get_strings (is_ext, start) =
+            get_func (fun x -> x) fstr is_ext start in
+          (match block_modifier with
+          | BHeader (n, (o, t)) -> Header (n, (o, get_lines t))
+          | BBlockquote (o, t)  -> Blockquote (o, get_lines t)
+          | BFootnote (n, (o, t)) -> Footnote (n, (o, get_lines t))
+          | BParagraph (o, t) -> Paragraph    (o, get_lines t)
+          | BBlockcode (o, t) -> Blockcode    (o, get_strings t)
+          | BPre       (o, t) -> Pre          (o, get_strings t)
+          | BNumlist   (o, t) -> Numlist      (o, get_lines t)
+          | BBulllist  (o, t) -> Bulllist     (o, get_lines t)
+          | TableWithAttrs (ct, t, s) -> raise Invalid_modifier
+          | TableWithoutAttrs -> Table (([], None, None), get_rows fstr))
+        with Invalid_modifier | Invalid_table ->
+        Paragraph (([], None, (0,0)), get_func parse_string fstr false 0))
     | None ->
         Paragraph (([], None, (0,0)), get_func parse_string fstr false 0) in
 
-  let next_block () =
+  let rec next_block () =
     try
-      let fstr = Stream.next stream in
-      Some (get_block fstr)
+      match Stream.next stream with
+      |  ""  -> next_block ()
+      | fstr -> Some (get_block fstr)
     with Stream.Failure -> None in
 
   Stream.from (fun _ -> next_block ())

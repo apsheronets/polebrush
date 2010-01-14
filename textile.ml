@@ -80,7 +80,6 @@ exception Invalid_modifier
 exception Invalid_attribute
 exception Invalid_table
 exception Invalid_row
-exception Invalid_cell
 
 let num_of_char c =
   (int_of_char c) - 48
@@ -107,7 +106,7 @@ type block_modifier =
   | BNumlist    of (options * (bool * int))
   | BBulllist   of (options * (bool * int))
   | TableWithAttrs of (celltype * tableoptions * int)
-  | TableWithoutAttrs
+  | TableWithoutAttrs of row
 type params_set =
   | TableParams
   | CellParams (* or row*)
@@ -283,40 +282,44 @@ let parse_stream stream =
         Not_found | Invalid_argument _ -> raise Invalid_attribute)
     in loop ([], None, (0,0), None, Data, (None, None)) start in
 
-  let get_rows fstr =
-    let rowoptions = ([], None, None) in
-    let celloptions = (Data, ([], None, None), (None, None)) in
-    let get_celllines str peeks start =
-      let rec loop str acc peeks start n =
-        try
-          match str.[n] with
-          | '|' ->
-              let cellstring = String.sub str (start) (n - start) in
-              let cellline = parse_string cellstring in
-              Some (List.rev (cellline::acc), str, peeks, (n+1))
-          |  _  ->
-              loop str acc peeks start (n+1)
-        with Invalid_argument _ ->
-          (match n with
-          | 0 -> raise Invalid_row
-          | n when start = n -> None
-          | n ->
-              let cellstring = String.sub str (start) (n - start) in
-              let cellline = parse_string cellstring in
-              (match peekn stream peeks with
-              | Some nextstr ->
-                  loop nextstr (cellline::acc) (peeks+1) 0 0
-              | None -> raise Invalid_row)) in
-      loop str [] peeks start start in
-    let get_row str peeks =
-      let rec loop str acc peeks start =
-        (match get_celllines str peeks start with
-        | Some (celllines, str, peeks, start) ->
-            loop str ((celloptions, celllines)::acc) peeks start
-        | None ->
-            njunk stream peeks;
-            List.rev acc) in
-      loop str [] peeks 1 in
+  let rowoptions = ([], None, None) in
+  let celloptions = (Data, ([], None, None), (None, None)) in
+
+  let get_celllines str peeks start =
+    let rec loop str acc peeks start n =
+      try
+        match str.[n] with
+        | '|' ->
+            let cellstring = String.sub str (start) (n - start) in
+            let cellline = parse_string cellstring in
+            Some (List.rev (cellline::acc), str, peeks, (n+1))
+        |  _  ->
+            loop str acc peeks start (n+1)
+      with Invalid_argument _ ->
+        (match n with
+        | 0 -> raise Invalid_row
+        | n when start = n -> None
+        | n ->
+            let cellstring = String.sub str (start) (n - start) in
+            let cellline = parse_string cellstring in
+            (match peekn stream peeks with
+            | Some nextstr ->
+                loop nextstr (cellline::acc) (peeks+1) 0 0
+            | None -> raise Invalid_row)) in
+    loop str [] peeks start start in
+
+  let get_row str peeks =
+    let rec loop str acc peeks start =
+      (match get_celllines str peeks start with
+      | Some (celllines, str, peeks, start) ->
+          loop str ((celloptions, celllines)::acc) peeks start
+      | None ->
+          njunk stream peeks;
+          List.rev acc) in
+    loop str [] peeks 1 in
+
+
+  let get_rows fstr frow =
     let rec loop acc str peeks =
       try
         let row = (rowoptions, get_row str peeks) in
@@ -330,12 +333,8 @@ let parse_stream stream =
               |  _  -> List.rev acc)
             else List.rev (row::acc)
         | None -> List.rev acc)
-      with Invalid_row ->
-        match acc with
-        | [] -> raise Invalid_table
-        | _  -> List.rev acc in
-    loop [] fstr 0 in
-(*    [(rowoptions, get_row fstr)] in*)
+      with Invalid_row -> List.rev acc in
+    loop [frow] fstr 0 in
 
   let get_block_modifier fstr =
     let options start =
@@ -378,7 +377,9 @@ let parse_stream stream =
             | 'l', 'e' -> TableWithAttrs (tableoptions 5)
             | _ -> raise Invalid_modifier)
         | '|', _,  _  ->
-            TableWithoutAttrs
+            (try
+              TableWithoutAttrs (rowoptions, get_row fstr 0)
+            with Invalid_row -> raise Invalid_modifier)
         | _ -> raise Invalid_modifier)
     with
       (* If our string is too shorter... *)
@@ -410,24 +411,22 @@ let parse_stream stream =
   let get_block fstr =
     match get_block_modifier fstr with
     | Some (block_modifier) ->
-        (try
-          let get_lines (is_ext, start) =
-            get_func parse_string fstr is_ext start in
-          let get_strings (is_ext, start) =
-            get_func (fun x -> x) fstr is_ext start in
-          (match block_modifier with
-          | BHeader (n, (o, t)) -> Header (n, (o, get_lines t))
-          | BBlockquote (o, t)  -> Blockquote (o, get_lines t)
-          | BFootnote (n, (o, t)) -> Footnote (n, (o, get_lines t))
-          | BParagraph (o, t) -> Paragraph    (o, get_lines t)
-          | BBlockcode (o, t) -> Blockcode    (o, get_strings t)
-          | BPre       (o, t) -> Pre          (o, get_strings t)
-          | BNumlist   (o, t) -> Numlist      (o, get_lines t)
-          | BBulllist  (o, t) -> Bulllist     (o, get_lines t)
-          | TableWithAttrs (ct, t, s) -> raise Invalid_modifier
-          | TableWithoutAttrs -> Table (([], None, None), get_rows fstr))
-        with Invalid_modifier | Invalid_table ->
-        Paragraph (([], None, (0,0)), get_func parse_string fstr false 0))
+        let get_lines (is_ext, start) =
+          get_func parse_string fstr is_ext start in
+        let get_strings (is_ext, start) =
+          get_func (fun x -> x) fstr is_ext start in
+        (match block_modifier with
+        | BHeader (n, (o, t)) -> Header (n, (o, get_lines t))
+        | BBlockquote (o, t)  -> Blockquote (o, get_lines t)
+        | BFootnote (n, (o, t)) -> Footnote (n, (o, get_lines t))
+        | BParagraph (o, t) -> Paragraph    (o, get_lines t)
+        | BBlockcode (o, t) -> Blockcode    (o, get_strings t)
+        | BPre       (o, t) -> Pre          (o, get_strings t)
+        | BNumlist   (o, t) -> Numlist      (o, get_lines t)
+        | BBulllist  (o, t) -> Bulllist     (o, get_lines t)
+        | TableWithAttrs (ct, t, s) -> raise Invalid_modifier
+        | TableWithoutAttrs frow ->
+            Table (([], None, None), get_rows fstr frow))
     | None ->
         Paragraph (([], None, (0,0)), get_func parse_string fstr false 0) in
 

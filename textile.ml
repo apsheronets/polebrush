@@ -81,6 +81,27 @@ exception Invalid_attribute
 exception Invalid_table
 exception Invalid_row
 
+type block_modifier =
+  | BHeader     of int * (options * (bool * int))
+  | BBlockquote of (options * (bool * int))
+  | BFootnote   of int * (options * (bool * int))
+  | BParagraph  of (options * (bool * int))
+  | BBlockcode  of (options * (bool * int))
+  | BPre        of (options * (bool * int))
+  | BNumlist    of (options * (bool * int))
+  | BBulllist   of (options * (bool * int))
+  | TableWithAttrs of (celltype * tableoptions * int)
+  | TableWithoutAttrs of row
+type params_set =
+  | TableParams
+  | RowParams
+  | CellParams
+  | BlockParams
+  | PhraseParams
+type encasing_char =
+  | Blank
+  | Brace
+
 let num_of_char c =
   (int_of_char c) - 48
 
@@ -96,23 +117,6 @@ let rec peekn stream n =
   try Some (List.nth l n)
   with Failure _ -> None
 
-type block_modifier =
-  | BHeader     of int * (options * (bool * int))
-  | BBlockquote of (options * (bool * int))
-  | BFootnote   of int * (options * (bool * int))
-  | BParagraph  of (options * (bool * int))
-  | BBlockcode  of (options * (bool * int))
-  | BPre        of (options * (bool * int))
-  | BNumlist    of (options * (bool * int))
-  | BBulllist   of (options * (bool * int))
-  | TableWithAttrs of (celltype * tableoptions * int)
-  | TableWithoutAttrs of row
-type params_set =
-  | TableParams
-  | CellParams (* or row*)
-  | BlockParams
-  | PhraseParams
-
 let parse_stream stream =
 
   let rec parse_string str =
@@ -122,45 +126,27 @@ let parse_stream stream =
       CData (String.sub str start len) in
     let rec find_modifier prev_char n =
       try
-        match prev_char, str.[n] with
-        | ' ', '_' ->
-            (match str.[n+1] with
-            | '_' ->
-                close_modifier (n+2) n ['_'; '_'] (fun x -> Italic x)
-            | _ ->
-                close_modifier (n+1) n ['_'] (fun x -> Emphasis x))
-        | ' ', '*' ->
-            (match str.[n+1] with
-            | '*' ->
-                close_modifier (n+2) n ['*'; '*'] (fun x -> Bold x)
-            | _ ->
-                close_modifier (n+1) n ['*'] (fun x -> Strong x))
-        | ' ', '?' ->
-            (match str.[n+1] with
-            | '?' ->
-                close_modifier (n+2) n ['?'; '?'] (fun x -> Citation x)
-            | _ -> find_modifier '?' (n+1)
-            )
-        | ' ', '-' ->
-            close_modifier (n+1) n ['-'] (fun x -> Deleted x)
-        | ' ', '+' ->
-            close_modifier (n+1) n ['+'] (fun x -> Inserted x)
-        | ' ', '^' -> (* FIXME: is it a good implementation? *)
-            close_modifier (n+1) n ['^'] (fun x -> Superscript x)
-        | ' ', '~' ->
-            close_modifier (n+1) n ['~'] (fun x -> Subscript x)
-        | ' ', '%' ->
-            close_modifier (n+1) n ['%'] (fun x -> Span x)
-        | ' ', '@' ->
-            close_modifier (n+1) n ['@'] (fun x -> Code x)
-        | _, c -> find_modifier c (n+1)
+        if prev_char = ' '
+        then match str.[n], str.[n+1] with
+        | '_', '_' -> cm (n+2) n ['_'; '_'] (fun x -> Italic x)
+        | '_',  _  -> cm (n+1) n ['_']      (fun x -> Emphasis x)
+        | '*', '*' -> cm (n+2) n ['*'; '*'] (fun x -> Bold x)
+        | '*',  _  -> cm (n+1) n ['*']      (fun x -> Strong x)
+        | '?', '?' -> cm (n+2) n ['?'; '?'] (fun x -> Citation x)
+        | '-',  _  -> cm (n+1) n ['-']      (fun x -> Deleted x)
+        | '+',  _  -> cm (n+1) n ['+']      (fun x -> Inserted x)
+        | '^',  _  -> cm (n+1) n ['^']      (fun x -> Superscript x)
+        | '~',  _  -> cm (n+1) n ['~']      (fun x -> Subscript x)
+        | '%',  _  -> cm (n+1) n ['%']      (fun x -> Span x)
+        | '@',  _  -> cm (n+1) n ['@']      (fun x -> Code x)
+        | _ -> find_modifier str.[n] (n+1)
+        else find_modifier str.[n] (n+1)
       (* If we have passed whole string without any modifier
        * then we simply pack it in CData *)
       with Invalid_argument _ -> [CData str]
-                          (* End of last lexeme position
-                           * vvvv *)
-    and close_modifier start eoll char_list constr =
-      (* FIXME: jumping *)
+              (* End of last lexeme position
+               * vvvv *)
+    and cm start eoll char_list constr =
       if str.[start] = ' ' then find_modifier ' ' (start+1) else
       (* don't forget what chlist is not the same as char_list! *)
       let rec loop clist n =
@@ -182,12 +168,7 @@ let parse_stream stream =
               else pack_cdata str 0 eoll :: tail
           | c, h::t when c = h -> loop t (n+1)
           | _ -> loop clist (n+1)
-        with Invalid_argument _ -> (*CData str (* FIXME *)*)
-          match char_list with
-          (* This branch ... *) (* Goddamn, FOR WHAT did I create *)
-          (*| [] -> *)          (* this branch? *)
-          (* FAIL *)
-          | _  -> find_modifier str.[start-1] start in
+        with Invalid_argument _ -> find_modifier str.[start-1] start in
       loop char_list start in
     find_modifier ' ' 0 in
 

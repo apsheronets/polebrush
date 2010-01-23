@@ -1,3 +1,12 @@
+h1=. A _he *a* der_ here
+So ??what's wrong??
+Oh[^my^]god
+
+|a|simple|
+|table|here|
+
+_some line_
+
 |one|two|three|four
 
 |one
@@ -21,9 +30,6 @@ pre. Oh
 my
 
 god
-
-h1=. A _header_ here
-So ??what's wrong??
 
 bc. Leave **me** alone
 

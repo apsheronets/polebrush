@@ -77,7 +77,7 @@ type options =
 type cellspan =
   int option * int option
 
-(** Table specific options. May be applied to a table, a row or a cell *)
+(** Table specific options. May be applied to a table, to a row or to a cell *)
 type tableoptions =
   attr list * talign option * valign option
 

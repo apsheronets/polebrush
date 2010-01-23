@@ -117,6 +117,21 @@ let rec peekn stream n =
   try Some (List.nth l n)
   with Failure _ -> None
 
+let is_blank = function
+  | ' ' | '\t' -> true
+  | _ -> false
+
+let enc_char c =
+  if is_blank c then Some Blank
+  else if c = '[' then Some Brace
+  else None
+
+let is_final_enc str n = function
+  | Blank when String.length str <= (n+1) -> true
+  | Blank when is_blank str.[n] -> true
+  | Brace when str.[n] = ']' -> true
+  | _ -> false
+
 let parse_stream stream =
 
   let rec parse_string str =
@@ -126,46 +141,53 @@ let parse_stream stream =
       CData (String.sub str start len) in
     let rec find_modifier prev_char n =
       try
-        if prev_char = ' '
-        then match str.[n], str.[n+1] with
-        | '_', '_' -> cm (n+2) n ['_'; '_'] (fun x -> Italic x)
-        | '_',  _  -> cm (n+1) n ['_']      (fun x -> Emphasis x)
-        | '*', '*' -> cm (n+2) n ['*'; '*'] (fun x -> Bold x)
-        | '*',  _  -> cm (n+1) n ['*']      (fun x -> Strong x)
-        | '?', '?' -> cm (n+2) n ['?'; '?'] (fun x -> Citation x)
-        | '-',  _  -> cm (n+1) n ['-']      (fun x -> Deleted x)
-        | '+',  _  -> cm (n+1) n ['+']      (fun x -> Inserted x)
-        | '^',  _  -> cm (n+1) n ['^']      (fun x -> Superscript x)
-        | '~',  _  -> cm (n+1) n ['~']      (fun x -> Subscript x)
-        | '%',  _  -> cm (n+1) n ['%']      (fun x -> Span x)
-        | '@',  _  -> cm (n+1) n ['@']      (fun x -> Code x)
-        | _ -> find_modifier str.[n] (n+1)
-        else find_modifier str.[n] (n+1)
+        let myfunc n t =
+          let cm = close_modifier n t in
+          match str.[n], str.[n+1] with
+          | '_', '_' -> cm (n+2) ['_'; '_'] (fun x -> Italic x)
+          | '_',  _  -> cm (n+1) ['_']      (fun x -> Emphasis x)
+          | '*', '*' -> cm (n+2) ['*'; '*'] (fun x -> Bold x)
+          | '*',  _  -> cm (n+1) ['*']      (fun x -> Strong x)
+          | '?', '?' -> cm (n+2) ['?'; '?'] (fun x -> Citation x)
+          | '-',  _  -> cm (n+1) ['-']      (fun x -> Deleted x)
+          | '+',  _  -> cm (n+1) ['+']      (fun x -> Inserted x)
+          | '^',  _  -> cm (n+1) ['^']      (fun x -> Superscript x)
+          | '~',  _  -> cm (n+1) ['~']      (fun x -> Subscript x)
+          | '%',  _  -> cm (n+1) ['%']      (fun x -> Span x)
+          | '@',  _  -> cm (n+1) ['@']      (fun x -> Code x)
+          | _ -> find_modifier str.[n] (n+1) in
+        match enc_char prev_char with
+        | Some t -> myfunc n t
+        | None -> find_modifier str.[n] (n+1)
       (* If we have passed whole string without any modifier
        * then we simply pack it in CData *)
       with Invalid_argument _ -> [CData str]
-              (* End of last lexeme position
-               * vvvv *)
-    and cm start eoll char_list constr =
+                    (* End of last lexeme position
+                     * vvvv *)
+    and close_modifier eoll enc_type start char_list constr =
       if str.[start] = ' ' then find_modifier ' ' (start+1) else
       (* don't forget what chlist is not the same as char_list! *)
       let rec loop clist n =
         try
           match str.[n], clist with
-          | c, [h]  when c = h ->
+          | c, [h] when (c = h && is_final_enc str (n+1) enc_type) ->
               (* PLEASE FIXME *
                * PLEEEEEAAASE *)
+              let k = if enc_type = Brace then 1 else 0 in
               let tail =
                 constr (parse_string (
-                  String.sub str start (n-start-(List.length char_list - 1))
+                  String.sub str
+                    start
+                    (n-start-(List.length char_list) + 1)
                 ))
                 :: parse_string (
-                  let s = n + (List.length clist) in
+                  let s = n + (List.length clist) + k in
                   String.sub str s ((String.length str) - s)
                 ) in
               (* Fixes empty strings in lines like ^"_some line_"$ *)
-              if eoll = 0 then tail
-              else pack_cdata str 0 eoll :: tail
+              if eoll = 0
+              then tail
+              else (pack_cdata str 0 (eoll - k)) :: tail
           | c, h::t when c = h -> loop t (n+1)
           | _ -> loop clist (n+1)
         with Invalid_argument _ -> find_modifier str.[start-1] start in
@@ -289,33 +311,32 @@ let parse_stream stream =
             | None -> raise Invalid_row)) in
     loop str [] peeks start start in
 
-  let get_row str peeks =
-    let rec loop str acc peeks start =
-      (match get_celllines str peeks start with
-      | Some (celllines, str, peeks, start) ->
-          loop str ((celloptions, celllines)::acc) peeks start
-      | None ->
-          njunk stream peeks;
-          List.rev acc) in
-    loop str [] peeks 1 in
+  let get_row peeks str =
+    if String.length str > 0
+    then
+      match str.[0] with
+      | '|' ->
+          (let rec loop str acc peeks start =
+            (match get_celllines str peeks start with
+            | Some (celllines, str, peeks, start) ->
+                loop str ((celloptions, celllines)::acc) peeks start
+            | None ->
+                njunk stream peeks;
+                (rowoptions, List.rev acc)) in
+          loop str [] peeks 1)
+      | _ -> raise Invalid_row
+    else raise Invalid_row in
 
-
-  let get_rows fstr frow =
-    let rec loop acc str peeks =
-      try
-        let row = (rowoptions, get_row str peeks) in
-        (match Stream.peek stream with
-        | Some nextstr ->
-            if String.length nextstr > 0
-            then
-              (match nextstr.[0] with
-              | '|' ->
-                  loop (row::acc) nextstr 1
-              |  _  -> List.rev acc)
-            else List.rev (row::acc)
-        | None -> List.rev acc)
-      with Invalid_row -> List.rev acc in
-    loop [frow] fstr 0 in
+  let get_rows frow =
+    let rec loop acc =
+      match Stream.peek stream with
+      | Some str ->
+          (try
+            let row = get_row 1 str in
+            loop (row::acc)
+          with Invalid_row -> List.rev acc)
+      | None -> List.rev acc in
+    loop [frow] in
 
   let get_block_modifier fstr =
     let options start =
@@ -359,7 +380,7 @@ let parse_stream stream =
             | _ -> raise Invalid_modifier)
         | '|', _,  _  ->
             (try
-              TableWithoutAttrs (rowoptions, get_row fstr 0)
+              TableWithoutAttrs (get_row 0 fstr)
             with Invalid_row -> raise Invalid_modifier)
         | _ -> raise Invalid_modifier)
     with
@@ -407,7 +428,7 @@ let parse_stream stream =
         | BBulllist  (o, t) -> Bulllist     (o, get_lines t)
         | TableWithAttrs (ct, t, s) -> raise Invalid_modifier
         | TableWithoutAttrs frow ->
-            Table (([], None, None), get_rows fstr frow))
+            Table (([], None, None), get_rows frow))
     | None ->
         Paragraph (([], None, (0,0)), get_func parse_string fstr false 0) in
 

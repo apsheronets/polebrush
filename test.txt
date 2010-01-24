@@ -1,3 +1,5 @@
+(shit). |a|{color:red}. styled|cell|
+
 h1=. A _he *a* der_ here
 So ??what's wrong??
 Oh[^my^]god

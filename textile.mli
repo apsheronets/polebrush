@@ -23,13 +23,36 @@
   @author Alexander Markov 2009 apsheronets\@gmail.com
 *)
 
-(** {9 Textile syntax tree} *)
+(** {2 Textile syntax tree} *)
+
+(** {3 Options} *)
 
 type attr =
   | Class    of string (** p(myclass). *)
   | Id       of string (** p(#myid). *)
   | Style    of string (** p{color:red}. *)
   | Language of string (** p\[fr-fr\]. *) (* without backslashes :) *)
+
+(** Alignment option. *)
+type talign =
+  | Right   (** > *)
+  | Left    (** < *)
+  | Center  (** = *)
+  | Justify (** <> *)
+
+type valign =
+  | Top    (** ^ *)
+  | Middle (** - *)
+  | Bottom (** ~ *)
+
+(** Left and right padding consistently. Define with ( and ) in block modifier *)
+type padding =
+  int * int
+
+type options =
+  attr list * talign option * padding
+
+(** {3 Content} *)
 
 (** Phrases may be presents like HTML tags for text formatting. For
 example, **ocaml is __functional__ language** is equivalent for <b>ocaml
@@ -55,31 +78,14 @@ type phrase =
 type line =
   phrase list
 
-(** Alignment option. *)
-type talign =
-  | Right   (** > *)
-  | Left    (** < *)
-  | Center  (** = *)
-  | Justify (** <> *)
-
-type valign =
-  | Top    (** ^ *)
-  | Middle (** - *)
-  | Bottom (** ~ *)
-
-(** Left and right padding consistently. Define with ( and ) in block modifier *)
-type padding =
-  int * int
-
-type options =
-  attr list * talign option * padding
+(** {3 Tables} *)
 
 type cellspan =
   int option * int option
 
 (** Table specific options. May be applied to a table, to a row or to a cell *)
 type tableoptions =
-  attr list * talign option * valign option
+  options * valign option
 
 type celltype =
   | Data
@@ -91,6 +97,7 @@ type cell =
 type row =
   tableoptions * cell list
 
+(** {2 Blocks} *)
 
 (** Extended blocks parse automaticly so there is no difference for you between normal and extended blocks.
 
@@ -106,5 +113,6 @@ type block =
   | Bulllist   of (options * line list)     (** * *)
   | Table      of (tableoptions * row list) (** |t|a|b|l|e| *)
 
+(** {2 Functions} *)
 
 val parse_stream : string Stream.t -> block Stream.t

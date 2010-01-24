@@ -55,7 +55,7 @@ type options =
 type cellspan =
   int option * int option
 type tableoptions =
-  attr list * talign option * valign option
+  options * valign option
 type celltype =
   | Data
   | Head
@@ -90,14 +90,14 @@ type block_modifier =
   | BPre        of (options * (bool * int))
   | BNumlist    of (options * (bool * int))
   | BBulllist   of (options * (bool * int))
-  | TableWithAttrs of (celltype * tableoptions * int)
+  (*| TableWithAttrs of (celltype * tableoptions * int)*)
   | TableWithoutAttrs of row
 type params_set =
-  | TableParams
-  | RowParams
-  | CellParams
-  | BlockParams
-  | PhraseParams
+  | TableP
+  | RowP
+  | CellP
+  | BlockP
+  | PhraseP
 type encasing_char =
   | Blank
   | Brace
@@ -117,24 +117,22 @@ let rec peekn stream n =
   try Some (List.nth l n)
   with Failure _ -> None
 
-let is_blank = function
-  | ' ' | '\t' -> true
-  | _ -> false
-
-let enc_char c =
-  if is_blank c then Some Blank
-  else if c = '[' then Some Brace
-  else None
-
-let is_final_enc str n = function
-  | Blank when String.length str <= (n+1) -> true
-  | Blank when is_blank str.[n] -> true
-  | Brace when str.[n] = ']' -> true
-  | _ -> false
-
 let parse_stream stream =
 
   let rec parse_string str =
+    let is_blank = function
+      | ' ' | '\t' -> true
+      | _ -> false in
+    let enc_char c =
+      if is_blank c then Some Blank
+      else if c = '[' then Some Brace
+      else None in
+    let is_final_enc str n = function
+      | Blank when String.length str <= (n+1) -> true
+      | Blank when is_blank str.[n] -> true
+      | Brace when str.[n] = ']' -> true
+      | _ -> false in
+
     (* Cut empty phrases *)
     if String.length str = 0 then [] else
     let pack_cdata str start len =
@@ -173,17 +171,18 @@ let parse_stream stream =
           | c, [h] when (c = h && is_final_enc str (n+1) enc_type) ->
               (* PLEASE FIXME *
                * PLEEEEEAAASE *)
-              let k = if enc_type = Brace then 1 else 0 in
-              let tail =
-                constr (parse_string (
-                  String.sub str
-                    start
-                    (n-start-(List.length char_list) + 1)
-                ))
-                :: parse_string (
+              let k = match enc_type with Brace -> 1 | _ -> 0 in
+              let parsed_phrase = constr (parse_string (
+                String.sub str
+                  start
+                  (n-start-(List.length char_list) + 1))) in
+              let postfix =
+                parse_string (
                   let s = n + (List.length clist) + k in
                   String.sub str s ((String.length str) - s)
                 ) in
+              let tail =
+                parsed_phrase :: postfix in
               (* Fixes empty strings in lines like ^"_some line_"$ *)
               if eoll = 0
               then tail
@@ -194,11 +193,11 @@ let parse_stream stream =
       loop char_list start in
     find_modifier ' ' 0 in
 
-  let get_options is_table fstr start = (* FIXME, it's too ugly *)
+  let get_options params_set fstr start = (* FIXME, it's too ugly *)
     let rec loop ((attrs, talign, ((leftpad, rightpad) as padding),
       valign, celltype, cellspan) as options) n =
       try
-        match is_table, fstr.[n], talign, valign, celltype with
+        match params_set, fstr.[n], talign, valign, celltype with
 
         (* Style *)
         | _, '{', _, _, _ ->
@@ -216,17 +215,19 @@ let parse_stream stream =
               (* If it's not an attribute
                * then try to parse as left alignment *)
               | Invalid_attribute ->
-                  if is_table (* But only if it's not a table *)
-                  then raise Invalid_modifier
-                  else loop (attrs, talign, (leftpad+1, rightpad), valign,
-                    celltype, cellspan) (n+1))
+                  (* But only if it's a block *)
+                  match params_set with
+                  | BlockP ->
+                      loop (attrs, talign, (leftpad+1, rightpad), valign,
+                        celltype, cellspan) (n+1)
+                  | _ -> raise Invalid_modifier)
 
         (* Language *)
         | _, '[', _, _, _ ->
             extr_attr_and_cont n ']' (fun x -> Language x) options
 
         (* Right padding *)
-        | false, ')', _, _, _ ->
+        | BlockP, ')', _, _, _ ->
             loop (attrs, talign, (leftpad, rightpad+1), valign, celltype,
               cellspan) (n+1)
 
@@ -242,33 +243,31 @@ let parse_stream stream =
                                   valign, celltype, cellspan) (n+1)
 
         (* Heading cell *)
-        | true, '_', _, _, Data -> loop (attrs, talign, padding, valign,
+        | CellP, '_', _, _, Data -> loop (attrs, talign, padding, valign,
                                      Head, cellspan) (n+2)
 
         (* Vertical alignment *)
-        | true, '^', _, None, _ -> loop (attrs, talign, padding,
+        | CellP, '^', _, None, _ -> loop (attrs, talign, padding,
                                      (Some Top), celltype, cellspan) (n+1)
-        | true, '-', _, None, _ -> loop (attrs, talign, padding,
+        | CellP, '-', _, None, _ -> loop (attrs, talign, padding,
                                      (Some Middle),celltype,cellspan) (n+1)
-        | true, '~', _, None, _ -> loop (attrs, talign, padding,
+        | CellP, '~', _, None, _ -> loop (attrs, talign, padding,
                                      (Some Bottom),celltype,cellspan) (n+1)
-
-        (*| true, '\', _, _, _ ->*)
 
         (* End of options *)
         | _, '.', _, _, _ ->
             (try
-              (match is_table, fstr.[n+1] with
-              |   _,   ' ' -> false, options, (n+2)
-              | false, '.' ->
+              (match params_set, fstr.[n+1] with
+              |   _,    ' ' -> false, options, (n+2)
+              | BlockP, '.' ->
                   (match fstr.[n+2] with
                   | ' ' -> true, options, (n+2)
                   |  _  -> raise Invalid_modifier)
               |  _  -> raise Invalid_modifier) (* whitespace required *)
             with Invalid_argument _ ->
-              if is_table
-              then false, options, (n+2)
-              else raise Invalid_modifier)
+              match params_set with
+              | TableP -> false, options, (n+2)
+              | _ -> raise Invalid_modifier)
 
         |  _ -> raise Invalid_modifier
       (* If we have passed the whole string and haven't found a dot *)
@@ -285,8 +284,9 @@ let parse_stream stream =
         Not_found | Invalid_argument _ -> raise Invalid_attribute)
     in loop ([], None, (0,0), None, Data, (None, None)) start in
 
-  let rowoptions = ([], None, None) in
-  let celloptions = (Data, ([], None, None), (None, None)) in
+  let defaultoptions = ([], None, (0, 0)) in
+  let defaulttableoptions = (defaultoptions, None) in
+  let defaultcelloptions = (Data, defaulttableoptions, (None, None)) in
 
   let get_celllines str peeks start =
     let rec loop str acc peeks start n =
@@ -314,17 +314,37 @@ let parse_stream stream =
   let get_row peeks str =
     if String.length str > 0
     then
-      match str.[0] with
-      | '|' ->
-          (let rec loop str acc peeks start =
-            (match get_celllines str peeks start with
-            | Some (celllines, str, peeks, start) ->
-                loop str ((celloptions, celllines)::acc) peeks start
-            | None ->
-                njunk stream peeks;
-                (rowoptions, List.rev acc)) in
-          loop str [] peeks 1)
-      | _ -> raise Invalid_row
+      let toptions, start =
+        try
+          (let _,
+            (attrs, talign, padding, valign, _, _),
+            start = get_options RowP str 0 in
+          ((attrs, talign, padding), valign), start)
+        with Invalid_modifier -> defaulttableoptions, 0 in
+      let rec move n =
+        try
+          (match str.[n] with
+          | '|' ->
+              (let rec loop str acc peeks start =
+                let celloptions, start =
+                  try
+                    (let _,
+                      (attrs, talign, padding, valign, celltype, cellspan),
+                      start = get_options CellP str start in
+                    (celltype, ((attrs, talign, padding), valign),
+                      cellspan), start)
+                  with Invalid_modifier -> defaultcelloptions, start in
+                (match get_celllines str peeks start with
+                | Some (celllines, str, peeks, start) ->
+                    loop str ((celloptions, celllines)::acc) peeks start
+                | None ->
+                    njunk stream peeks;
+                    (toptions, List.rev acc)) in
+              loop str [] peeks start)
+          | ' ' | '\t' -> move (n+1)
+          | _ -> raise Invalid_row)
+        with Invalid_argument _ -> raise Invalid_row in
+      move start
     else raise Invalid_row in
 
   let get_rows frow =
@@ -340,13 +360,13 @@ let parse_stream stream =
 
   let get_block_modifier fstr =
     let options start =
-      let is_ext, (attrs, align, padding, _, _, _), start
-        = get_options false fstr start in
-      (attrs, align, padding), (is_ext, start) in
-    let tableoptions start =
-      let _, (attrs, talign, _, valign, celltype, cellspan), start
-        = get_options true fstr start in
-      celltype, (attrs, talign, valign), start in
+      let is_ext, (attrs, talign, padding, _, _, _), start
+        = get_options BlockP fstr start in
+      (attrs, talign, padding), (is_ext, start) in
+    (*let tableoptions start =
+      let _, (attrs, talign, padding, valign, celltype, cellspan), start
+        = get_options TableP fstr start in
+      celltype, ((attrs, talign, padding), valign), start in*)
     try
       Some (match fstr.[0], fstr.[1], fstr.[2] with
         (* Headers  *)
@@ -375,14 +395,13 @@ let parse_stream stream =
             BPre (options 3)
         | 'p', _,  _  ->
             BParagraph (options 1)
-        | 't','a','b' -> (match fstr.[3], fstr.[4] with
+        (*| 't','a','b' -> (match fstr.[3], fstr.[4] with
             | 'l', 'e' -> TableWithAttrs (tableoptions 5)
-            | _ -> raise Invalid_modifier)
-        | '|', _,  _  ->
+            | _ -> raise Invalid_modifier)*)
+        | _ ->
             (try
               TableWithoutAttrs (get_row 0 fstr)
-            with Invalid_row -> raise Invalid_modifier)
-        | _ -> raise Invalid_modifier)
+            with Invalid_row -> raise Invalid_modifier))
     with
       (* If our string is too shorter... *)
       | Invalid_argument _
@@ -426,9 +445,9 @@ let parse_stream stream =
         | BPre       (o, t) -> Pre          (o, get_strings t)
         | BNumlist   (o, t) -> Numlist      (o, get_lines t)
         | BBulllist  (o, t) -> Bulllist     (o, get_lines t)
-        | TableWithAttrs (ct, t, s) -> raise Invalid_modifier
+        (*| TableWithAttrs (ct, t, s) -> raise Invalid_modifier*)
         | TableWithoutAttrs frow ->
-            Table (([], None, None), get_rows frow))
+            Table (defaulttableoptions, get_rows frow))
     | None ->
         Paragraph (([], None, (0,0)), get_func parse_string fstr false 0) in
 

@@ -244,7 +244,7 @@ let parse_stream stream =
 
         (* Heading cell *)
         | CellP, '_', _, _, Data -> loop (attrs, talign, padding, valign,
-                                     Head, cellspan) (n+2)
+                                     Head, cellspan) (n+1)
 
         (* Vertical alignment *)
         | CellP, '^', _, None, _ -> loop (attrs, talign, padding,

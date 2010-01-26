@@ -128,7 +128,7 @@ let parse_stream stream =
       else if c = '[' then Some Brace
       else None in
     let is_final_enc str n = function
-      | Blank when String.length str <= (n+1) -> true
+      | Blank when String.length str <= n -> true
       | Blank when is_blank str.[n] -> true
       | Brace when str.[n] = ']' -> true
       | _ -> false in
@@ -153,6 +153,7 @@ let parse_stream stream =
           | '~',  _  -> cm (n+1) ['~']      (fun x -> Subscript x)
           | '%',  _  -> cm (n+1) ['%']      (fun x -> Span x)
           | '@',  _  -> cm (n+1) ['@']      (fun x -> Code x)
+          | '"',  _  -> close_link n t
           | _ -> find_modifier str.[n] (n+1) in
         match enc_char prev_char with
         | Some t -> myfunc n t
@@ -190,7 +191,35 @@ let parse_stream stream =
           | c, h::t when c = h -> loop t (n+1)
           | _ -> loop clist (n+1)
         with Invalid_argument _ -> find_modifier str.[start-1] start in
-      loop char_list start in
+      loop char_list start
+    and close_link tstart enc_type =
+      let rec loop n =
+        try
+          match str.[n], str.[n+1] with
+          | '"', ':' ->
+              let textend = (n-1) in
+              let rec loop n =
+                if is_final_enc str n enc_type
+                then
+                  (let k = match enc_type with Brace -> 1 | _ -> 0 in
+                  let parsed_phrase =
+                    Link (String.sub str (tstart+1) (textend-tstart),
+                      String.sub str (textend+3) (n-textend-3)) in
+                  let postfix =
+                    parse_string (
+                      let s = n + k in
+                      String.sub str s ((String.length str) - s)
+                    ) in
+                  let tail =
+                    parsed_phrase :: postfix in
+                  if tstart = 0
+                  then tail
+                  else (pack_cdata str 0 (tstart - k)) :: tail)
+                else loop (n+1) in
+              loop (textend+1)
+          | _ -> loop (n+1)
+        with Invalid_argument _ -> find_modifier str.[n] (n+1) in
+      loop tstart in
     find_modifier ' ' 0 in
 
   let get_options params_set fstr start = (* FIXME, it's too ugly *)

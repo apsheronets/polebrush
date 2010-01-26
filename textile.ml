@@ -369,7 +369,7 @@ let parse_stream stream =
                 | None ->
                     njunk stream peeks;
                     (toptions, List.rev acc)) in
-              loop str [] peeks start)
+              loop str [] peeks (start+1))
           | ' ' | '\t' -> move (n+1)
           | _ -> raise Invalid_row)
         with Invalid_argument _ -> raise Invalid_row in

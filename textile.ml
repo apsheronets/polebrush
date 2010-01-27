@@ -36,7 +36,8 @@ type phrase =
   | Span        of phrase list   (* % *)
   | Code        of phrase list   (* @ *)
   | Acronym of string * string   (* ABC(Always Be Closing *)
-  | Link of string * string      (* "linktext":url *)
+  | Image of string * string     (* !/fear.jpg(my wife)! *)
+  | Link of phrase list * string (* "linktext":url *)
 type line =
   phrase list
 type talign =
@@ -141,18 +142,20 @@ let parse_stream stream =
       try
         let myfunc n t =
           let cm = close_modifier n t in
+          let ps = parse_string in
           match str.[n], str.[n+1] with
-          | '_', '_' -> cm (n+2) ['_'; '_'] (fun x -> Italic x)
-          | '_',  _  -> cm (n+1) ['_']      (fun x -> Emphasis x)
-          | '*', '*' -> cm (n+2) ['*'; '*'] (fun x -> Bold x)
-          | '*',  _  -> cm (n+1) ['*']      (fun x -> Strong x)
-          | '?', '?' -> cm (n+2) ['?'; '?'] (fun x -> Citation x)
-          | '-',  _  -> cm (n+1) ['-']      (fun x -> Deleted x)
-          | '+',  _  -> cm (n+1) ['+']      (fun x -> Inserted x)
-          | '^',  _  -> cm (n+1) ['^']      (fun x -> Superscript x)
-          | '~',  _  -> cm (n+1) ['~']      (fun x -> Subscript x)
-          | '%',  _  -> cm (n+1) ['%']      (fun x -> Span x)
-          | '@',  _  -> cm (n+1) ['@']      (fun x -> Code x)
+          | '_', '_' -> cm (n+2) ['_'; '_'] (fun x -> Italic   (ps x))
+          | '_',  _  -> cm (n+1) ['_']      (fun x -> Emphasis (ps x))
+          | '*', '*' -> cm (n+2) ['*'; '*'] (fun x -> Bold     (ps x))
+          | '*',  _  -> cm (n+1) ['*']      (fun x -> Strong   (ps x))
+          | '?', '?' -> cm (n+2) ['?'; '?'] (fun x -> Citation (ps x))
+          | '-',  _  -> cm (n+1) ['-']      (fun x -> Deleted  (ps x))
+          | '+',  _  -> cm (n+1) ['+']      (fun x -> Inserted (ps x))
+          | '^',  _  -> cm (n+1) ['^']      (fun x -> Superscript (ps x))
+          | '~',  _  -> cm (n+1) ['~']      (fun x -> Subscript (ps x))
+          | '%',  _  -> cm (n+1) ['%']      (fun x -> Span     (ps x))
+          | '@',  _  -> cm (n+1) ['@']      (fun x -> Code     (ps x))
+          | '!',  _  -> cm (n+1) ['!']      (fun x -> Image (x, ""))
           | '"',  _  -> close_link n t
           | _ -> find_modifier str.[n] (n+1) in
         match enc_char prev_char with
@@ -173,10 +176,10 @@ let parse_stream stream =
               (* PLEASE FIXME *
                * PLEEEEEAAASE *)
               let k = match enc_type with Brace -> 1 | _ -> 0 in
-              let parsed_phrase = constr (parse_string (
+              let parsed_phrase = constr (
                 String.sub str
                   start
-                  (n-start-(List.length char_list) + 1))) in
+                  (n-start-(List.length char_list) + 1)) in
               let postfix =
                 parse_string (
                   let s = n + (List.length clist) + k in
@@ -202,9 +205,9 @@ let parse_stream stream =
                 if is_final_enc str n enc_type
                 then
                   (let k = match enc_type with Brace -> 1 | _ -> 0 in
-                  let parsed_phrase =
-                    Link (String.sub str (tstart+1) (textend-tstart),
-                      String.sub str (textend+3) (n-textend-3)) in
+                  let parsed_phrase = Link (parse_string
+                    (String.sub str (tstart+1) (textend-tstart)),
+                    String.sub str (textend+3) (n-textend-3)) in
                   let postfix =
                     parse_string (
                       let s = n + k in

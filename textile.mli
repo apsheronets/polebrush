@@ -72,7 +72,8 @@ type phrase =
   | Span        of phrase list   (** % *)
   | Code        of phrase list   (** @ *)
   | Acronym of string * string   (** ABC(Always Be Closing) *)
-  | Link of string * string      (** "linktext":url *)
+  | Image of string * string     (** !/fear.jpg(my wife)! *)
+  | Link of phrase list * string (** "linktext":url *)
 
 (** One line of text. It terminates by line break character. *)
 type line =

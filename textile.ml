@@ -271,7 +271,7 @@ let parse_stream stream =
                        celltype, cellspan) (n+1))
         | _, '>', None, _, _ -> loop (attrs, (Some Right), padding,
                                   valign, celltype, cellspan) (n+1)
-        | _, '=', None, _, _ -> loop (attrs, (Some Justify), padding,
+        | _, '=', None, _, _ -> loop (attrs, (Some Center), padding,
                                   valign, celltype, cellspan) (n+1)
 
         (* Heading cell *)

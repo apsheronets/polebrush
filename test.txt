@@ -1,10 +1,10 @@
-(shit). |a|_. styled|cell|
-
-!ohshit!
-
 h1=. A _he *a* der_ here
 So ??what's wrong??
 Oh[^my^]god
+
+(shit). |a|_. styled|cell|
+
+!ohshit!
 
 |a|simple|
 |table|here|

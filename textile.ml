@@ -106,6 +106,18 @@ type encasing_char =
 let num_of_char c =
   (int_of_char c) - 48
 
+let find_substr str sub start =
+  let sublen = String.length sub in
+  let sublast = sublen - 1 in
+  let rec loop n m =
+    try
+      if str.[n+m] = sub.[m] then
+        if sublast = m then n
+        else loop n (m+1)
+      else loop (n+1) 0
+    with Invalid_argument _ -> raise Not_found in
+  loop start 0
+
 let rec njunk stream n =
   if n > 0
   then
@@ -144,18 +156,18 @@ let parse_stream stream =
           let cm = close_modifier n t in
           let ps = parse_string in
           match str.[n], str.[n+1] with
-          | '_', '_' -> cm (n+2) ['_'; '_'] (fun x -> Italic   (ps x))
-          | '_',  _  -> cm (n+1) ['_']      (fun x -> Emphasis (ps x))
-          | '*', '*' -> cm (n+2) ['*'; '*'] (fun x -> Bold     (ps x))
-          | '*',  _  -> cm (n+1) ['*']      (fun x -> Strong   (ps x))
-          | '?', '?' -> cm (n+2) ['?'; '?'] (fun x -> Citation (ps x))
-          | '-',  _  -> cm (n+1) ['-']      (fun x -> Deleted  (ps x))
-          | '+',  _  -> cm (n+1) ['+']      (fun x -> Inserted (ps x))
-          | '^',  _  -> cm (n+1) ['^']      (fun x -> Superscript (ps x))
-          | '~',  _  -> cm (n+1) ['~']      (fun x -> Subscript (ps x))
-          | '%',  _  -> cm (n+1) ['%']      (fun x -> Span     (ps x))
-          | '@',  _  -> cm (n+1) ['@']      (fun x -> Code     (ps x))
-          | '!',  _  -> cm (n+1) ['!']      (fun x -> Image (x, ""))
+          | '_', '_' -> cm (n+2) "__" (fun x -> Italic   (ps x))
+          | '_',  _  -> cm (n+1) "_"  (fun x -> Emphasis (ps x))
+          | '*', '*' -> cm (n+2) "**" (fun x -> Bold     (ps x))
+          | '*',  _  -> cm (n+1) "*"  (fun x -> Strong   (ps x))
+          | '?', '?' -> cm (n+2) "??" (fun x -> Citation (ps x))
+          | '-',  _  -> cm (n+1) "-"  (fun x -> Deleted  (ps x))
+          | '+',  _  -> cm (n+1) "+"  (fun x -> Inserted (ps x))
+          | '^',  _  -> cm (n+1) "^"  (fun x -> Superscript (ps x))
+          | '~',  _  -> cm (n+1) "~"  (fun x -> Subscript (ps x))
+          | '%',  _  -> cm (n+1) "%"  (fun x -> Span     (ps x))
+          | '@',  _  -> cm (n+1) "@"  (fun x -> Code     (ps x))
+          | '!',  _  -> cm (n+1) "!"  (fun x -> Image (x, ""))
           | '"',  _  -> close_link n t
           | _ -> find_modifier str.[n] (n+1) in
         match enc_char prev_char with
@@ -166,23 +178,20 @@ let parse_stream stream =
       with Invalid_argument _ -> [CData str]
                     (* End of last lexeme position
                      * vvvv *)
-    and close_modifier eoll enc_type start char_list constr =
+    and close_modifier eoll enc_type start cstr constr =
       if str.[start] = ' ' then find_modifier ' ' (start+1) else
-      (* don't forget what chlist is not the same as char_list! *)
-      let rec loop clist n =
+      let rec loop n =
         try
-          match str.[n], clist with
-          | c, [h] when (c = h && is_final_enc str (n+1) enc_type) ->
-              (* PLEASE FIXME *
-               * PLEEEEEAAASE *)
+          let pos = find_substr str cstr n in
+          if is_final_enc str (pos+(String.length cstr)) enc_type then
               let k = match enc_type with Brace -> 1 | _ -> 0 in
               let parsed_phrase = constr (
                 String.sub str
                   start
-                  (n-start-(List.length char_list) + 1)) in
+                  (pos-start)) in
               let postfix =
                 parse_string (
-                  let s = n + (List.length clist) + k in
+                  let s = pos + (String.length cstr) + k in
                   String.sub str s ((String.length str) - s)
                 ) in
               let tail =
@@ -191,10 +200,9 @@ let parse_stream stream =
               if eoll = 0
               then tail
               else (pack_cdata str 0 (eoll - k)) :: tail
-          | c, h::t when c = h -> loop t (n+1)
-          | _ -> loop clist (n+1)
-        with Invalid_argument _ -> find_modifier str.[start-1] start in
-      loop char_list start
+          else loop (pos+1)
+        with Not_found -> find_modifier str.[start-1] start in
+      loop start
     and close_link tstart enc_type =
       let rec loop n =
         try

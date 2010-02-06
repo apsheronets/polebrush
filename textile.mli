@@ -13,7 +13,7 @@
  * You should have received a copy of the GNU General Public License
  * along with textile-ocaml.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Copyright 2009 Alexander Markov *)
+ * Copyright 2010 Alexander Markov *)
 
 (** Textile markup language support for OCaml
 
@@ -30,7 +30,7 @@
 type attr =
   | Class    of string (** p(myclass). *)
   | Id       of string (** p(#myid). *)
-  | Style    of string (** p{color:red}. *)
+  | Style    of string (** p\{color:red\}. *)
   | Language of string (** p\[fr-fr\]. *) (* without backslashes :) *)
 
 (** Alignment option. *)

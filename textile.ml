@@ -13,7 +13,7 @@
  * You should have received a copy of the GNU General Public License
  * along with textile-ocaml.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Copyright 2009 Alexander Markov *)
+ * Copyright 2010 Alexander Markov *)
 
 open ExtLib
 
@@ -75,11 +75,10 @@ type block =
   | Bulllist   of (options * line list)     (** * *)
   | Table      of (tableoptions * row list) (** |t|a|b|l|e| *)
 
-(* This is internal exceptions. They must be even catched
+(* There are internal exceptions. They must be even catched
  * inside the module *)
 exception Invalid_modifier
 exception Invalid_attribute
-exception Invalid_table
 exception Invalid_row
 
 type block_modifier =

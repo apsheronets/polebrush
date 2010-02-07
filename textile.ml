@@ -24,20 +24,21 @@ type attr =
   | Language of string (* p[fr-fr]. *)
 type phrase =
   | CData       of string
-  | Emphasis    of phrase list   (* _ *)
-  | Strong      of phrase list   (* * *)
-  | Italic      of phrase list   (* __ *)
-  | Bold        of phrase list   (* ** *)
-  | Citation    of phrase list   (* ?? *)
-  | Deleted     of phrase list   (* - *)
-  | Inserted    of phrase list   (* + *)
-  | Superscript of phrase list   (* ^ *)
-  | Subscript   of phrase list   (* ~ *)
-  | Span        of phrase list   (* % *)
-  | Code        of phrase list   (* @ *)
-  | Acronym of string * string   (* ABC(Always Be Closing *)
-  | Image of string * string     (* !/fear.jpg(my wife)! *)
-  | Link of phrase list * string (* "linktext":url *)
+  | Emphasis    of attr list * phrase list   (* _ *)
+  | Strong      of attr list * phrase list   (* * *)
+  | Italic      of attr list * phrase list   (* __ *)
+  | Bold        of attr list * phrase list   (* ** *)
+  | Citation    of attr list * phrase list   (* ?? *)
+  | Deleted     of attr list * phrase list   (* - *)
+  | Inserted    of attr list * phrase list   (* + *)
+  | Superscript of attr list * phrase list   (* ^ *)
+  | Subscript   of attr list * phrase list   (* ~ *)
+  | Span        of attr list * phrase list   (* % *)
+  | Code        of attr list * phrase list   (* @ *)
+  | Acronym of string * string               (* ABC(Always Be Closing *)
+  | Image of attr list * string * string     (* !/fear.jpg(my wife)! *)
+  | Link of attr list * phrase list *
+      string option * string (* "linktext(title)":url *)
 type line =
   phrase list
 type talign =
@@ -105,7 +106,10 @@ type encasing_char =
 let num_of_char c =
   (int_of_char c) - 48
 
-let find_substr str sub start =
+(* find_from str sub start returns the character number of the first
+ * occurence of sstring sub in string str after position start. Raises
+ * Not_found if there are no such substring after position start. *)
+let find_from str sub start =
   let sublen = String.length sub in
   let sublast = sublen - 1 in
   let rec loop n m =
@@ -131,6 +135,130 @@ let rec peekn stream n =
 
 let parse_stream stream =
 
+  let defaultoptions = ([], None, (0, 0)) in
+  let defaulttableoptions = (defaultoptions, None) in
+  let defaultcelloptions = (Data, defaulttableoptions, (None, None)) in
+
+  let get_attr str n =
+    (* Extracts an attribute which closes by char c *)
+    let extr_attr n c constr =
+    (try
+      let e = String.index_from str (n+1) c in
+      Some (constr (String.sub str (n+1) (e-n-1)), (e+1))
+    with
+     (* If we have an open parenthesis and some happened shit *)
+      Not_found | Invalid_argument _ -> None) in
+    match str.[n] with
+    (* Style *)
+    | '{' -> extr_attr n '}' (fun x -> Style x)
+    (* This may be a class, an id or left padding *)
+    | '(' -> (match str.[n+1] with
+        | '#' -> extr_attr (n+1) ')' (fun x -> Id x)
+        |  _  -> extr_attr n ')' (fun x -> Class x))
+    (* Language *)
+    | '[' -> extr_attr n ']' (fun x -> Language x)
+    |  _ -> None in
+
+  let get_padding str n (lpad, rpad) =
+    match str.[n] with
+    | ')' -> Some ((lpad, rpad+1), n+1)
+    | '(' -> Some ((lpad+1, rpad), n+1)
+    |  _  -> None in
+
+  let get_talign str n talign =
+    match str.[n], talign with
+    | '<', None -> (match str.[n+1] with
+        | '>' -> Some (Justify, n+2)
+        |  _  -> Some (Left, n+1))
+    | '>', None -> Some (Right, n+1)
+    | '=', None -> Some (Center, n+1)
+    |  _ -> None in
+
+  let get_celltype str n celltype =
+    match str.[n], celltype with
+    | '_', Data -> Some (Head, n+1)
+    | _ -> None in
+
+  let get_valign str n valign =
+    match str.[n], valign with
+    | '^', None -> Some (Top,    n+1)
+    | '-', None -> Some (Middle, n+1)
+    | '~', None -> Some (Bottom, n+1)
+    | _ -> None in
+
+  let get_option str n (attrs, talign, ((lp, rp) as padding)) =
+    (match get_attr str n with
+    | Some (attr, n) -> Some (((attr::attrs), talign, padding), n)
+    | None ->
+    (match get_padding str n padding with
+    | Some ((l, r), n) -> Some ((attrs, talign, (lp+l, rp+r)), n)
+    | None ->
+    (match get_talign str n talign with
+    | Some (talign, n) -> Some ((attrs, (Some talign), padding), n)
+    | None -> None))) in
+
+  let get_tableoption str n (options, valign) =
+    (match get_option str n options with
+    | Some (options, n) -> Some ((options, valign), n)
+    | None ->
+    (match get_valign str n valign with
+    | Some (valign, n) -> Some ((options, (Some valign)), n)
+    | None -> None)) in
+
+  let get_phrase_attrs str start =
+    let rec loop acc n =
+      match get_attr str start with
+      | Some (attr, n) -> loop (attr::acc) n
+      | None -> acc, n
+    in loop [] start in
+
+  let get_block_opts str start =
+    let rec loop options n =
+      try
+        (match get_option str n options with
+        | Some (options, n) -> loop options n
+        | None ->
+        (match str.[n] with
+        | '.' -> (match str.[n+1] with
+            | ' ' -> false, options, n+2
+            | '.' -> (match str.[n+2] with
+                | ' ' -> true, options, n+3
+                |  _  -> raise Invalid_modifier)
+            |  _  -> raise Invalid_modifier)
+        |  _  -> raise Invalid_modifier))
+      with Invalid_argument _ -> raise Invalid_modifier in
+    loop ([], None, (0,0)) start in
+
+  let get_cell_opts str start =
+    let rec loop (celltype, tableoptions, cellspan) n =
+      try
+        (match get_celltype str n celltype with
+        | Some (celltype, n) -> loop (celltype, tableoptions, cellspan) n
+        | None ->
+        (match get_tableoption str n tableoptions with
+        | Some (tableoptions, n) ->
+            loop (celltype, tableoptions, cellspan) n
+        | None ->
+        (match str.[n] with
+        | '.' -> (match str.[n+1] with
+            | ' ' -> (celltype, tableoptions, cellspan), (n+2)
+            |  _  -> defaultcelloptions, start)
+        |  _  -> defaultcelloptions, start)))
+      with Invalid_argument _ -> defaultcelloptions, start in
+    loop defaultcelloptions start in
+
+  let get_row_options str start =
+    let rec loop tableoptions n =
+      (match get_tableoption str n tableoptions with
+      | Some (tableoptions, n) -> loop tableoptions n
+      | None ->
+      (match str.[n] with
+      | '.' -> (match str.[n+1] with
+          | ' ' -> tableoptions, (n+2)
+          |  _  -> defaulttableoptions, start)
+      |  _  -> defaulttableoptions, start)) in
+    loop defaulttableoptions start in
+
   let rec parse_string str =
     let is_blank = function
       | ' ' | '\t' -> true
@@ -155,18 +283,18 @@ let parse_stream stream =
           let cm = close_modifier n t in
           let ps = parse_string in
           match str.[n], str.[n+1] with
-          | '_', '_' -> cm (n+2) "__" (fun x -> Italic   (ps x))
-          | '_',  _  -> cm (n+1) "_"  (fun x -> Emphasis (ps x))
-          | '*', '*' -> cm (n+2) "**" (fun x -> Bold     (ps x))
-          | '*',  _  -> cm (n+1) "*"  (fun x -> Strong   (ps x))
-          | '?', '?' -> cm (n+2) "??" (fun x -> Citation (ps x))
-          | '-',  _  -> cm (n+1) "-"  (fun x -> Deleted  (ps x))
-          | '+',  _  -> cm (n+1) "+"  (fun x -> Inserted (ps x))
-          | '^',  _  -> cm (n+1) "^"  (fun x -> Superscript (ps x))
-          | '~',  _  -> cm (n+1) "~"  (fun x -> Subscript (ps x))
-          | '%',  _  -> cm (n+1) "%"  (fun x -> Span     (ps x))
-          | '@',  _  -> cm (n+1) "@"  (fun x -> Code     (ps x))
-          | '!',  _  -> cm (n+1) "!"  (fun x -> Image (x, ""))
+          | '_', '_' -> cm (n+2) "__" (fun x -> Italic   ([], ps x))
+          | '_',  _  -> cm (n+1) "_"  (fun x -> Emphasis ([], ps x))
+          | '*', '*' -> cm (n+2) "**" (fun x -> Bold     ([], ps x))
+          | '*',  _  -> cm (n+1) "*"  (fun x -> Strong   ([], ps x))
+          | '?', '?' -> cm (n+2) "??" (fun x -> Citation ([], ps x))
+          | '-',  _  -> cm (n+1) "-"  (fun x -> Deleted  ([], ps x))
+          | '+',  _  -> cm (n+1) "+"  (fun x -> Inserted ([], ps x))
+          | '^',  _  -> cm (n+1) "^"  (fun x -> Superscript ([], ps x))
+          | '~',  _  -> cm (n+1) "~"  (fun x -> Subscript ([], ps x))
+          | '%',  _  -> cm (n+1) "%"  (fun x -> Span     ([], ps x))
+          | '@',  _  -> cm (n+1) "@"  (fun x -> Code     ([], ps x))
+          | '!',  _  -> cm (n+1) "!"  (fun x -> Image    ([], x, ""))
           | '"',  _  -> close_link n t
           | _ -> find_modifier str.[n] (n+1) in
         match enc_char prev_char with
@@ -181,7 +309,7 @@ let parse_stream stream =
       if str.[start] = ' ' then find_modifier ' ' (start+1) else
       let rec loop n =
         try
-          let pos = find_substr str cstr n in
+          let pos = find_from str cstr n in
           if is_final_enc str (pos+(String.length cstr)) enc_type then
               let k = match enc_type with Brace -> 1 | _ -> 0 in
               let parsed_phrase = constr (
@@ -202,130 +330,32 @@ let parse_stream stream =
           else loop (pos+1)
         with Not_found -> find_modifier str.[start-1] start in
       loop start
-    and close_link tstart enc_type =
-      let rec loop n =
-        try
-          match str.[n], str.[n+1] with
-          | '"', ':' ->
-              let textend = (n-1) in
-              let rec loop n =
-                if is_final_enc str n enc_type
-                then
-                  (let k = match enc_type with Brace -> 1 | _ -> 0 in
-                  let parsed_phrase = Link (parse_string
-                    (String.sub str (tstart+1) (textend-tstart)),
-                    String.sub str (textend+3) (n-textend-3)) in
-                  let postfix =
-                    parse_string (
-                      let s = n + k in
-                      String.sub str s ((String.length str) - s)
-                    ) in
-                  let tail =
-                    parsed_phrase :: postfix in
-                  if tstart = 0
-                  then tail
-                  else (pack_cdata str 0 (tstart - k)) :: tail)
-                else loop (n+1) in
-              loop (textend+1)
-          | _ -> loop (n+1)
-        with Invalid_argument _ -> find_modifier str.[n] (n+1) in
-      loop tstart in
-    find_modifier ' ' 0 in
-
-  let get_options params_set fstr start = (* FIXME, it's too ugly *)
-    let rec loop ((attrs, talign, ((leftpad, rightpad) as padding),
-      valign, celltype, cellspan) as options) n =
+    and close_link linkstart enc_type =
       try
-        match params_set, fstr.[n], talign, valign, celltype with
-
-        (* Style *)
-        | _, '{', _, _, _ ->
-            extr_attr_and_cont n '}' (fun x -> Style x) options
-
-        (* This may be a class, an id or left padding *)
-        | _, '(', _, _, _ ->
-            (try
-              match fstr.[n+1] with
-              | '#' ->
-                extr_attr_and_cont (n+1) ')' (fun x -> Id x) options
-              |  _  ->
-                extr_attr_and_cont n ')' (fun x -> Class x) options
-            with
-              (* If it's not an attribute
-               * then try to parse as left alignment *)
-              | Invalid_attribute ->
-                  (* But only if it's a block *)
-                  match params_set with
-                  | BlockP ->
-                      loop (attrs, talign, (leftpad+1, rightpad), valign,
-                        celltype, cellspan) (n+1)
-                  | _ -> raise Invalid_modifier)
-
-        (* Language *)
-        | _, '[', _, _, _ ->
-            extr_attr_and_cont n ']' (fun x -> Language x) options
-
-        (* Right padding *)
-        | BlockP, ')', _, _, _ ->
-            loop (attrs, talign, (leftpad, rightpad+1), valign, celltype,
-              cellspan) (n+1)
-
-        (* Text alignment *)
-        | _, '<', None, _, _ -> (match fstr.[n+1] with
-            | '>' -> loop (attrs, (Some Justify), padding, valign,
-                       celltype, cellspan) (n+2)
-            |  _  -> loop (attrs, (Some Left), padding, valign,
-                       celltype, cellspan) (n+1))
-        | _, '>', None, _, _ -> loop (attrs, (Some Right), padding,
-                                  valign, celltype, cellspan) (n+1)
-        | _, '=', None, _, _ -> loop (attrs, (Some Center), padding,
-                                  valign, celltype, cellspan) (n+1)
-
-        (* Heading cell *)
-        | CellP, '_', _, _, Data -> loop (attrs, talign, padding, valign,
-                                     Head, cellspan) (n+1)
-
-        (* Vertical alignment *)
-        | CellP, '^', _, None, _ -> loop (attrs, talign, padding,
-                                     (Some Top), celltype, cellspan) (n+1)
-        | CellP, '-', _, None, _ -> loop (attrs, talign, padding,
-                                     (Some Middle),celltype,cellspan) (n+1)
-        | CellP, '~', _, None, _ -> loop (attrs, talign, padding,
-                                     (Some Bottom),celltype,cellspan) (n+1)
-
-        (* End of options *)
-        | _, '.', _, _, _ ->
-            (try
-              (match params_set, fstr.[n+1] with
-              |   _,    ' ' -> false, options, (n+2)
-              | BlockP, '.' ->
-                  (match fstr.[n+2] with
-                  | ' ' -> true, options, (n+2)
-                  |  _  -> raise Invalid_modifier)
-              |  _  -> raise Invalid_modifier) (* whitespace required *)
-            with Invalid_argument _ ->
-              match params_set with
-              | TableP -> false, options, (n+2)
-              | _ -> raise Invalid_modifier)
-
-        |  _ -> raise Invalid_modifier
-      (* If we have passed the whole string and haven't found a dot *)
-      with Invalid_argument _ | Invalid_attribute ->
-        raise Invalid_modifier
-    (* Extracts an attribute which closes by char c *)
-    and extr_attr_and_cont n c constr (attrs, ta, pd, va, ct, cs) =
-      (try
-        let e = String.index_from fstr (n+1) c in
-        let result = constr (String.sub fstr (n+1) (e-n-1)) in
-        loop ((result :: attrs), ta, pd, va, ct, cs) (e+1)
-      with
-       (* If we have an open parenthesis and some happened shit *)
-        Not_found | Invalid_argument _ -> raise Invalid_attribute)
-    in loop ([], None, (0,0), None, Data, (None, None)) start in
-
-  let defaultoptions = ([], None, (0, 0)) in
-  let defaulttableoptions = (defaultoptions, None) in
-  let defaultcelloptions = (Data, defaulttableoptions, (None, None)) in
+        let pos = find_from str "\":" linkstart in
+        let textend = (pos-1) in
+        let rec loop n =
+          if is_final_enc str n enc_type
+          then
+            (let k = match enc_type with Brace -> 1 | _ -> 0 in
+            let parsed_phrase =
+              Link ([], parse_string
+              (String.sub str (linkstart+1) (textend-linkstart)), None,
+              String.sub str (textend+3) (n-textend-3)) in
+            let postfix =
+              parse_string (
+                let s = n + k in
+                String.sub str s ((String.length str) - s)
+              ) in
+            let tail =
+              parsed_phrase :: postfix in
+            if linkstart = 0
+            then tail
+            else (pack_cdata str 0 (linkstart - k)) :: tail)
+          else loop (n+1) in
+        loop (textend+1)
+      with Not_found -> find_modifier str.[linkstart] (linkstart+1) in
+    find_modifier ' ' 0 in
 
   let get_celllines str peeks start =
     let rec loop str acc peeks start n =
@@ -354,25 +384,14 @@ let parse_stream stream =
     if String.length str > 0
     then
       let toptions, start =
-        try
-          (let _,
-            (attrs, talign, padding, valign, _, _),
-            start = get_options RowP str 0 in
-          ((attrs, talign, padding), valign), start)
-        with Invalid_modifier -> defaulttableoptions, 0 in
+        get_row_options str 0 in
       let rec move n =
         try
           (match str.[n] with
           | '|' ->
               (let rec loop str acc peeks start =
                 let celloptions, start =
-                  try
-                    (let _,
-                      (attrs, talign, padding, valign, celltype, cellspan),
-                      start = get_options CellP str start in
-                    (celltype, ((attrs, talign, padding), valign),
-                      cellspan), start)
-                  with Invalid_modifier -> defaultcelloptions, start in
+                  get_cell_opts str start in
                 (match get_celllines str peeks start with
                 | Some (celllines, str, peeks, start) ->
                     loop str ((celloptions, celllines)::acc) peeks start
@@ -399,13 +418,8 @@ let parse_stream stream =
 
   let get_block_modifier fstr =
     let options start =
-      let is_ext, (attrs, talign, padding, _, _, _), start
-        = get_options BlockP fstr start in
-      (attrs, talign, padding), (is_ext, start) in
-    (*let tableoptions start =
-      let _, (attrs, talign, padding, valign, celltype, cellspan), start
-        = get_options TableP fstr start in
-      celltype, ((attrs, talign, padding), valign), start in*)
+      let is_ext, options, start = get_block_opts fstr start in
+      options, (is_ext, start) in
     try
       Some (match fstr.[0], fstr.[1], fstr.[2] with
         (* Headers  *)

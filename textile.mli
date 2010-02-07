@@ -60,20 +60,20 @@ is <i>functional</i> language</b> or [Bold [CData "ocaml is "; Italic
 [CData "functional"]; CData " language"]] *)
 type phrase =
   | CData       of string
-  | Emphasis    of attr list * phrase list   (** _ *)
-  | Strong      of attr list * phrase list   (** * *)
-  | Italic      of attr list * phrase list   (** __ *)
-  | Bold        of attr list * phrase list   (** ** *)
-  | Citation    of attr list * phrase list   (** ?? *)
-  | Deleted     of attr list * phrase list   (** - *)
-  | Inserted    of attr list * phrase list   (** + *)
-  | Superscript of attr list * phrase list   (** ^ *)
-  | Subscript   of attr list * phrase list   (** ~ *)
-  | Span        of attr list * phrase list   (** % *)
-  | Code        of attr list * phrase list   (** @ *)
+  | Emphasis    of (attr list * phrase list)   (** _ *)
+  | Strong      of (attr list * phrase list)   (** * *)
+  | Italic      of (attr list * phrase list)   (** __ *)
+  | Bold        of (attr list * phrase list)   (** ** *)
+  | Citation    of (attr list * phrase list)   (** ?? *)
+  | Deleted     of (attr list * phrase list)   (** - *)
+  | Inserted    of (attr list * phrase list)   (** + *)
+  | Superscript of (attr list * phrase list)   (** ^ *)
+  | Subscript   of (attr list * phrase list)   (** ~ *)
+  | Span        of (attr list * phrase list)   (** % *)
+  | Code        of (attr list * phrase list)   (** @ *)
   | Acronym of string * string               (** ABC(Always Be Closing *)
   | Image of attr list * string * string     (** !/fear.jpg(my wife)! *)
-  | Link of attr list * phrase list *
+  | Link of (attr list * phrase list) *
       string option * string (** "linktext(title)":url *)
 
 (** One line of text. It terminates by line break character. *)

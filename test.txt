@@ -1,4 +1,4 @@
-|a|row|here|
+|a|??{color:blue}row??|here|
 {color:red}. |and|here|too|
 
 p=[ru-ru]. Paragraph.

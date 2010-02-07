@@ -24,20 +24,20 @@ type attr =
   | Language of string (* p[fr-fr]. *)
 type phrase =
   | CData       of string
-  | Emphasis    of attr list * phrase list   (* _ *)
-  | Strong      of attr list * phrase list   (* * *)
-  | Italic      of attr list * phrase list   (* __ *)
-  | Bold        of attr list * phrase list   (* ** *)
-  | Citation    of attr list * phrase list   (* ?? *)
-  | Deleted     of attr list * phrase list   (* - *)
-  | Inserted    of attr list * phrase list   (* + *)
-  | Superscript of attr list * phrase list   (* ^ *)
-  | Subscript   of attr list * phrase list   (* ~ *)
-  | Span        of attr list * phrase list   (* % *)
-  | Code        of attr list * phrase list   (* @ *)
-  | Acronym of string * string               (* ABC(Always Be Closing *)
-  | Image of attr list * string * string     (* !/fear.jpg(my wife)! *)
-  | Link of attr list * phrase list *
+  | Emphasis    of (attr list * phrase list)   (* _ *)
+  | Strong      of (attr list * phrase list)   (* * *)
+  | Italic      of (attr list * phrase list)   (* __ *)
+  | Bold        of (attr list * phrase list)   (* ** *)
+  | Citation    of (attr list * phrase list)   (* ?? *)
+  | Deleted     of (attr list * phrase list)   (* - *)
+  | Inserted    of (attr list * phrase list)   (* + *)
+  | Superscript of (attr list * phrase list)   (* ^ *)
+  | Subscript   of (attr list * phrase list)   (* ~ *)
+  | Span        of (attr list * phrase list)   (* % *)
+  | Code        of (attr list * phrase list)   (* @ *)
+  | Acronym of string * string                (* ABC(Always Be Closing *)
+  | Image of attr list * string * string      (* !/fear.jpg(my wife)! *)
+  | Link of (attr list * phrase list) *
       string option * string (* "linktext(title)":url *)
 type line =
   phrase list
@@ -206,10 +206,13 @@ let parse_stream stream =
     | None -> None)) in
 
   let get_phrase_attrs str start =
+    print_endline "get_phrase_attrs";
     let rec loop acc n =
-      match get_attr str start with
-      | Some (attr, n) -> loop (attr::acc) n
-      | None -> acc, n
+      try
+        match get_attr str n with
+        | Some (attr, n) -> loop (attr::acc) n
+        | None -> print_int n; acc, n
+      with Invalid_argument _ -> [], start
     in loop [] start in
 
   let get_block_opts str start =
@@ -283,18 +286,18 @@ let parse_stream stream =
           let cm = close_modifier n t in
           let ps = parse_string in
           match str.[n], str.[n+1] with
-          | '_', '_' -> cm (n+2) "__" (fun x -> Italic   ([], ps x))
-          | '_',  _  -> cm (n+1) "_"  (fun x -> Emphasis ([], ps x))
-          | '*', '*' -> cm (n+2) "**" (fun x -> Bold     ([], ps x))
-          | '*',  _  -> cm (n+1) "*"  (fun x -> Strong   ([], ps x))
-          | '?', '?' -> cm (n+2) "??" (fun x -> Citation ([], ps x))
-          | '-',  _  -> cm (n+1) "-"  (fun x -> Deleted  ([], ps x))
-          | '+',  _  -> cm (n+1) "+"  (fun x -> Inserted ([], ps x))
-          | '^',  _  -> cm (n+1) "^"  (fun x -> Superscript ([], ps x))
-          | '~',  _  -> cm (n+1) "~"  (fun x -> Subscript ([], ps x))
-          | '%',  _  -> cm (n+1) "%"  (fun x -> Span     ([], ps x))
-          | '@',  _  -> cm (n+1) "@"  (fun x -> Code     ([], ps x))
-          | '!',  _  -> cm (n+1) "!"  (fun x -> Image    ([], x, ""))
+          | '_', '_' -> cm (n+2) "__" (fun x -> Italic x)
+          | '_',  _  -> cm (n+1) "_"  (fun x -> Emphasis x)
+          | '*', '*' -> cm (n+2) "**" (fun x -> Bold x)
+          | '*',  _  -> cm (n+1) "*"  (fun x -> Strong x)
+          | '?', '?' -> cm (n+2) "??" (fun x -> Citation x)
+          | '-',  _  -> cm (n+1) "-"  (fun x -> Deleted x)
+          | '+',  _  -> cm (n+1) "+"  (fun x -> Inserted x)
+          | '^',  _  -> cm (n+1) "^"  (fun x -> Superscript x)
+          | '~',  _  -> cm (n+1) "~"  (fun x -> Subscript x)
+          | '%',  _  -> cm (n+1) "%"  (fun x -> Span x)
+          | '@',  _  -> cm (n+1) "@"  (fun x -> Code x)
+          (*| '!',  _  -> cm (n+1) "!"  (fun x -> Image    ([], x, ""))*)
           | '"',  _  -> close_link n t
           | _ -> find_modifier str.[n] (n+1) in
         match enc_char prev_char with
@@ -307,15 +310,16 @@ let parse_stream stream =
                      * vvvv *)
     and close_modifier eoll enc_type start cstr constr =
       if str.[start] = ' ' then find_modifier ' ' (start+1) else
+      let attrs, start = get_phrase_attrs str start in
       let rec loop n =
         try
           let pos = find_from str cstr n in
           if is_final_enc str (pos+(String.length cstr)) enc_type then
               let k = match enc_type with Brace -> 1 | _ -> 0 in
-              let parsed_phrase = constr (
-                String.sub str
+              let parsed_phrase = constr (attrs,
+                parse_string (String.sub str
                   start
-                  (pos-start)) in
+                  (pos-start))) in
               let postfix =
                 parse_string (
                   let s = pos + (String.length cstr) + k in
@@ -339,8 +343,8 @@ let parse_stream stream =
           then
             (let k = match enc_type with Brace -> 1 | _ -> 0 in
             let parsed_phrase =
-              Link ([], parse_string
-              (String.sub str (linkstart+1) (textend-linkstart)), None,
+              Link (([], parse_string
+              (String.sub str (linkstart+1) (textend-linkstart))), None,
               String.sub str (textend+3) (n-textend-3)) in
             let postfix =
               parse_string (

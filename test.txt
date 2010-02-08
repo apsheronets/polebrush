@@ -2,3 +2,9 @@
 {color:red}. |and|here|too|
 
 p=[ru-ru]. Paragraph.
+
+pre. Interesting moment.
+
+|interesting|moment|
+
+Interesting moment.

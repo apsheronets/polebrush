@@ -91,14 +91,8 @@ type block_modifier =
   | BPre        of (options * (bool * int))
   | BNumlist    of (options * (bool * int))
   | BBulllist   of (options * (bool * int))
-  (*| TableWithAttrs of (celltype * tableoptions * int)*)
-  | TableWithoutAttrs of row
-type params_set =
-  | TableP
-  | RowP
-  | CellP
-  | BlockP
-  | PhraseP
+  | BTable      of (tableoptions * row)
+
 type encasing_char =
   | Blank
   | Brace
@@ -206,12 +200,11 @@ let parse_stream stream =
     | None -> None)) in
 
   let get_phrase_attrs str start =
-    print_endline "get_phrase_attrs";
     let rec loop acc n =
       try
         match get_attr str n with
         | Some (attr, n) -> loop (attr::acc) n
-        | None -> print_int n; acc, n
+        | None -> acc, n
       with Invalid_argument _ -> [], start
     in loop [] start in
 
@@ -260,6 +253,18 @@ let parse_stream stream =
           | ' ' -> tableoptions, (n+2)
           |  _  -> defaulttableoptions, start)
       |  _  -> defaulttableoptions, start)) in
+    loop defaulttableoptions start in
+
+  let get_table_opts str start =
+    let rec loop tableoptions n =
+      try
+        (match get_tableoption str n tableoptions with
+        | Some (tableoptions, n) -> loop tableoptions n
+        | None ->
+        (match str.[n] with
+        | '.' when (n+1) = (String.length str) -> tableoptions
+        | _ -> raise Invalid_modifier))
+      with Invalid_argument _ -> raise Invalid_modifier in
     loop defaulttableoptions start in
 
   let rec parse_string str =
@@ -452,13 +457,15 @@ let parse_stream stream =
             BPre (options 3)
         | 'p', _,  _  ->
             BParagraph (options 1)
-        (*| 't','a','b' -> (match fstr.[3], fstr.[4] with
-            | 'l', 'e' -> TableWithAttrs (tableoptions 5)
-            | _ -> raise Invalid_modifier)*)
         | _ ->
             (try
-              TableWithoutAttrs (get_row 0 fstr)
-            with Invalid_row -> raise Invalid_modifier))
+              (*if String.starts_with fstr "table"
+              then
+                let tableoptions, start = get_table_opts fstr 5 in
+                let nextstr = peek
+                TableWithAttrs (tableoptions, get_row 5 fstr)
+              else*) BTable (defaulttableoptions, get_row 0 fstr)
+            with Invalid_row | Invalid_modifier -> raise Invalid_modifier))
     with
       (* If our string is too shorter... *)
       | Invalid_argument _
@@ -502,9 +509,7 @@ let parse_stream stream =
         | BPre       (o, t) -> Pre          (o, get_strings t)
         | BNumlist   (o, t) -> Numlist      (o, get_lines t)
         | BBulllist  (o, t) -> Bulllist     (o, get_lines t)
-        (*| TableWithAttrs (ct, t, s) -> raise Invalid_modifier*)
-        | TableWithoutAttrs frow ->
-            Table (defaulttableoptions, get_rows frow))
+        | BTable (topts, frow) -> Table (topts, get_rows frow))
     | None ->
         Paragraph (([], None, (0,0)), get_func parse_string fstr false 0) in
 

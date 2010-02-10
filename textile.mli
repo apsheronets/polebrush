@@ -72,7 +72,7 @@ type phrase =
   | Span        of (attr list * phrase list)   (** % *)
   | Code        of (attr list * phrase list)   (** @ *)
   | Acronym of string * string               (** ABC(Always Be Closing *)
-  | Image of attr list * string * string     (** !/fear.jpg(my wife)! *)
+  | Image of attr list * string * string option (** !/fear.jpg(my wife)! *)
   | Link of (attr list * phrase list) *
       string option * string (** "linktext(title)":url *)
 

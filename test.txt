@@ -1,3 +1,12 @@
+* > "example of(link)":http://google.com here
+* >["example of(link)":http://google.com]here
+* > !example of(imag)!:http://google.com here
+* >[!example of(imag)!:http://google.com]here
+* > !example of(imag)! here
+* >[!example of(imag)!]here
+* !http://farm3.static.flickr.com/2730/4308428995_68a692b3bc.jpg!
+* > !example of(imag)!
+
 * *Hello world!*
 * Hello again.
 

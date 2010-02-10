@@ -35,8 +35,8 @@ type phrase =
   | Subscript   of (attr list * phrase list)   (* ~ *)
   | Span        of (attr list * phrase list)   (* % *)
   | Code        of (attr list * phrase list)   (* @ *)
-  | Acronym of string * string                (* ABC(Always Be Closing *)
-  | Image of attr list * string * string      (* !/fear.jpg(my wife)! *)
+  | Acronym of string * string                 (* ABC(Always Be Closing *)
+  | Image of attr list * string * string option (* !/fear.jpg(my wife)! *)
   | Link of (attr list * phrase list) *
       string option * string (* "linktext(title)":url *)
 type line =
@@ -104,6 +104,9 @@ let num_of_char c =
 
 let str_end str start =
   String.sub str start ((String.length str) - start)
+
+let substr str s e =
+  String.sub str s (e - s)
 
 (* find_from str sub start returns the character number of the first
  * occurence of sstring sub in string str after position start. Raises
@@ -288,6 +291,14 @@ let parse_stream stream =
       | Blank when is_blank str.[n] -> true
       | Brace when str.[n] = ']' -> true
       | _ -> false in
+    let find_final_enc_from str start enc_type =
+      let rec loop n =
+        if is_final_enc str n enc_type
+        then n
+        else loop (n+1) in
+      try
+        loop start
+      with Invalid_argument _ -> raise Not_found in
 
     (* Cut empty phrases *)
     if String.length str = 0 then [] else
@@ -309,8 +320,8 @@ let parse_stream stream =
           | '~',  _  -> cm (n+1) "~"  (fun x -> Subscript x)
           | '%',  _  -> cm (n+1) "%"  (fun x -> Span x)
           | '@',  _  -> cm (n+1) "@"  (fun x -> Code x)
-          (*| '!',  _  -> cm (n+1) "!"  (fun x -> Image    ([], x, ""))*)
-          | '"',  _  -> close_link n t
+          | '!',  _  -> close_image (n+1) t
+          | '"',  _  -> close_link  n t
           | _ -> find_modifier str.[n] (n+1) in
         match enc_char prev_char with
         | Some t -> myfunc n t
@@ -329,14 +340,11 @@ let parse_stream stream =
           if is_final_enc str (pos+(String.length cstr)) enc_type then
               let k = match enc_type with Brace -> 1 | _ -> 0 in
               let parsed_phrase = constr (attrs,
-                parse_string (String.sub str
-                  start
-                  (pos-start))) in
+                parse_string (String.sub str start (pos-start))) in
               let postfix =
-                parse_string (
-                  let s = pos + (String.length cstr) + k in
-                  String.sub str s ((String.length str) - s)
-                ) in
+                parse_string
+                  (let s = pos + (String.length cstr) + k in
+                  str_end str s) in
               let tail =
                 parsed_phrase :: postfix in
               (* Fixes empty strings in lines like ^"_some line_"$ *)
@@ -358,19 +366,39 @@ let parse_stream stream =
               Link (([], parse_string
               (String.sub str (linkstart+1) (textend-linkstart))), None,
               String.sub str (textend+3) (n-textend-3)) in
-            let postfix =
-              parse_string (
-                let s = n + k in
-                String.sub str s ((String.length str) - s)
-              ) in
-            let tail =
-              parsed_phrase :: postfix in
+            let postfix = parse_string (str_end str (n+k)) in
+            let tail = parsed_phrase :: postfix in
             if linkstart = 0
             then tail
             else (pack_cdata str 0 (linkstart - k)) :: tail)
           else loop (n+1) in
         loop (textend+1)
-      with Not_found -> find_modifier str.[linkstart] (linkstart+1) in
+      with Not_found -> find_modifier str.[linkstart] (linkstart+1)
+    and close_image textstart enc_type =
+      try
+        let k = match enc_type with Brace -> 1 | _ -> 0 in
+        let pos = String.index_from str textstart '!' in
+        let imageurl = String.sub str textstart (pos-textstart) in
+        let phrase, poststart =
+          if is_final_enc str (pos+1) enc_type then
+            Image ([], imageurl, None), (pos+1)
+          else if str.[pos+1] = ':' then
+            let linkstart = (pos+2) in
+            let linkend = find_final_enc_from str linkstart enc_type in
+            let linkurl = substr str linkstart linkend in
+            Link (([], [Image ([], imageurl, None)]), None, linkurl),
+              linkend
+          else raise Not_found in
+        let postfix =
+          parse_string
+            (let s = poststart + k in
+            str_end str s) in
+        let tail =
+          phrase :: postfix in
+        if textstart = 1
+        then tail
+        else (pack_cdata str 0 (textstart - k - 1)) :: tail
+      with Not_found -> find_modifier str.[textstart] (textstart+1) in
     find_modifier ' ' 0 in
 
   let get_celllines str peeks start =

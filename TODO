@@ -1,5 +1,4 @@
 * Lists
-* Combined declarations of images and links like !imgsrc!:url
 * Titles in links and alts in images
 * Combined declarations of classes and ids like (myclass#myid)
 * Table options in @table(...){...}.@ declaration

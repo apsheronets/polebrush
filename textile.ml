@@ -65,6 +65,8 @@ type cell =
   (celltype * tableoptions * cellspan) * line list
 type row =
   tableoptions * cell list
+type element =
+  int * line
 type block =
   | Header     of int * (options * line list) (** h1. *)
   | Blockquote of (options * line list)       (** bq. *)
@@ -72,8 +74,8 @@ type block =
   | Paragraph  of (options * line list)     (** p. *)
   | Blockcode  of (options * string list)   (** bc. *)
   | Pre        of (options * string list)   (** pre. *)
-  | Numlist    of (options * line list)     (** # *)
-  | Bulllist   of (options * line list)     (** * *)
+  | Numlist    of (options * element list)  (** # *)
+  | Bulllist   of (options * element list)  (** * *)
   | Table      of (tableoptions * row list) (** |t|a|b|l|e| *)
 
 (* There are internal exceptions. They must be even catched
@@ -89,8 +91,8 @@ type block_modifier =
   | BParagraph  of (options * (bool * int))
   | BBlockcode  of (options * (bool * int))
   | BPre        of (options * (bool * int))
-  | BNumlist    of (options * (bool * int))
-  | BBulllist   of (options * (bool * int))
+  | BNumlist    of (options * element)
+  | BBulllist   of (options * element)
   | BTable      of (tableoptions * row)
 
 type encasing_char =
@@ -99,6 +101,9 @@ type encasing_char =
 
 let num_of_char c =
   (int_of_char c) - 48
+
+let str_end str start =
+  String.sub str start ((String.length str) - start)
 
 (* find_from str sub start returns the character number of the first
  * occurence of sstring sub in string str after position start. Raises
@@ -152,13 +157,11 @@ let parse_stream stream =
     (* Language *)
     | '[' -> extr_attr n ']' (fun x -> Language x)
     |  _ -> None in
-
   let get_padding str n (lpad, rpad) =
     match str.[n] with
     | ')' -> Some ((lpad, rpad+1), n+1)
     | '(' -> Some ((lpad+1, rpad), n+1)
     |  _  -> None in
-
   let get_talign str n talign =
     match str.[n], talign with
     | '<', None -> (match str.[n+1] with
@@ -167,19 +170,16 @@ let parse_stream stream =
     | '>', None -> Some (Right, n+1)
     | '=', None -> Some (Center, n+1)
     |  _ -> None in
-
   let get_celltype str n celltype =
     match str.[n], celltype with
     | '_', Data -> Some (Head, n+1)
     | _ -> None in
-
   let get_valign str n valign =
     match str.[n], valign with
     | '^', None -> Some (Top,    n+1)
     | '-', None -> Some (Middle, n+1)
     | '~', None -> Some (Bottom, n+1)
     | _ -> None in
-
   let get_option str n (attrs, talign, ((lp, rp) as padding)) =
     (match get_attr str n with
     | Some (attr, n) -> Some (((attr::attrs), talign, padding), n)
@@ -207,7 +207,6 @@ let parse_stream stream =
         | None -> acc, n
       with Invalid_argument _ -> [], start
     in loop [] start in
-
   let get_block_opts str start =
     let rec loop options n =
       try
@@ -221,6 +220,17 @@ let parse_stream stream =
                 | ' ' -> true, options, n+3
                 |  _  -> raise Invalid_modifier)
             |  _  -> raise Invalid_modifier)
+        |  _  -> raise Invalid_modifier))
+      with Invalid_argument _ -> raise Invalid_modifier in
+    loop ([], None, (0,0)) start in
+  let get_list_options str start =
+    let rec loop options n =
+      try
+        (match get_option str n options with
+        | Some (options, n) -> loop options n
+        | None ->
+        (match str.[n] with
+        | ' ' -> options, n+1
         |  _  -> raise Invalid_modifier))
       with Invalid_argument _ -> raise Invalid_modifier in
     loop ([], None, (0,0)) start in
@@ -242,7 +252,6 @@ let parse_stream stream =
         |  _  -> defaultcelloptions, start)))
       with Invalid_argument _ -> defaultcelloptions, start in
     loop defaultcelloptions start in
-
   let get_row_options str start =
     let rec loop tableoptions n =
       (match get_tableoption str n tableoptions with
@@ -254,7 +263,6 @@ let parse_stream stream =
           |  _  -> defaulttableoptions, start)
       |  _  -> defaulttableoptions, start)) in
     loop defaulttableoptions start in
-
   let get_table_opts str start =
     let rec loop tableoptions n =
       try
@@ -289,7 +297,6 @@ let parse_stream stream =
       try
         let myfunc n t =
           let cm = close_modifier n t in
-          let ps = parse_string in
           match str.[n], str.[n+1] with
           | '_', '_' -> cm (n+2) "__" (fun x -> Italic x)
           | '_',  _  -> cm (n+1) "_"  (fun x -> Emphasis x)
@@ -388,7 +395,6 @@ let parse_stream stream =
                 loop nextstr (cellline::acc) (peeks+1) 0 0
             | None -> raise Invalid_row)) in
     loop str [] peeks start start in
-
   let get_row peeks str =
     if String.length str > 0
     then
@@ -413,7 +419,6 @@ let parse_stream stream =
         with Invalid_argument _ -> raise Invalid_row in
       move start
     else raise Invalid_row in
-
   let get_rows frow =
     let rec loop acc =
       match Stream.peek stream with
@@ -424,6 +429,36 @@ let parse_stream stream =
           with Invalid_row -> List.rev acc)
       | None -> List.rev acc in
     loop [frow] in
+
+  let get_list_modifier str =
+    match str.[0] with
+    | '*' | '#' ->
+      (let options, start = get_list_options str 1 in
+      let line =
+        parse_string (String.sub str start ((String.length str - start))) in
+      match str.[0] with
+      | '#' -> BNumlist  (options, (1, line))
+      | '*' -> BBulllist (options, (1, line))
+      | _ -> raise Invalid_modifier)
+    | _ -> raise Invalid_modifier in
+  let get_elements c felm =
+    let rec get_level str n =
+      try
+        (match str.[n] with
+        | ch  when ch = c -> get_level str (n+1)
+        | ' ' when n > 0  -> Some n
+        |  _  -> None)
+      with Invalid_argument _ -> None in
+    let rec loop acc =
+      match Stream.peek stream with
+      | Some str ->
+        (match get_level str 0 with
+        | Some n ->
+            Stream.junk stream;
+            loop ((n, (parse_string (str_end str (n+1)))) :: acc)
+        | None -> List.rev acc)
+      | None -> acc in
+    loop [felm] in
 
   let get_block_modifier fstr =
     let options start =
@@ -458,17 +493,11 @@ let parse_stream stream =
         | 'p', _,  _  ->
             BParagraph (options 1)
         | _ ->
-            (try
-              (*if String.starts_with fstr "table"
-              then
-                let tableoptions, start = get_table_opts fstr 5 in
-                let nextstr = peek
-                TableWithAttrs (tableoptions, get_row 5 fstr)
-              else*) BTable (defaulttableoptions, get_row 0 fstr)
-            with Invalid_row | Invalid_modifier -> raise Invalid_modifier))
+            (try BTable (defaulttableoptions, get_row 0 fstr)
+            with Invalid_row | Invalid_modifier ->
+            get_list_modifier fstr))
     with
-      (* If our string is too shorter... *)
-      | Invalid_argument _
+      | Invalid_argument _ (* ff our string is too short *)
       | Invalid_modifier -> None in
 
   let get_func parsing_func fstr is_ext start =
@@ -507,8 +536,8 @@ let parse_stream stream =
         | BParagraph (o, t) -> Paragraph    (o, get_lines t)
         | BBlockcode (o, t) -> Blockcode    (o, get_strings t)
         | BPre       (o, t) -> Pre          (o, get_strings t)
-        | BNumlist   (o, t) -> Numlist      (o, get_lines t)
-        | BBulllist  (o, t) -> Bulllist     (o, get_lines t)
+        | BNumlist   (o, e) -> Numlist      (o, get_elements '#' e)
+        | BBulllist  (o, e) -> Bulllist     (o, get_elements '*' e)
         | BTable (topts, frow) -> Table (topts, get_rows frow))
     | None ->
         Paragraph (([], None, (0,0)), get_func parse_string fstr false 0) in

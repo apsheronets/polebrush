@@ -1,7 +1,14 @@
-|a|??{color:blue}row??|here|
-{color:red}. |and|here|too|
+* *Hello world!*
+* Hello again.
+
+# one
+# two
+three
 
 p=[ru-ru]. Paragraph.
+
+|a|??{color:blue}row??|here|
+{color:red}. |and|here|too|
 
 pre. Interesting moment.
 

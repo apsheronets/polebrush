@@ -99,6 +99,9 @@ type cell =
 type row =
   tableoptions * cell list
 
+type element =
+  int * line
+
 (** {2 Blocks} *)
 
 (** Extended blocks parse automaticly so there is no difference for you between normal and extended blocks.
@@ -111,8 +114,8 @@ type block =
   | Paragraph  of (options * line list)     (** p. *)
   | Blockcode  of (options * string list)   (** bc. *)
   | Pre        of (options * string list)   (** pre. *)
-  | Numlist    of (options * line list)     (** # *)
-  | Bulllist   of (options * line list)     (** * *)
+  | Numlist    of (options * element list)  (** # *)
+  | Bulllist   of (options * element list)  (** * *)
   | Table      of (tableoptions * row list) (** |t|a|b|l|e| *)
 
 (** {2 Functions} *)

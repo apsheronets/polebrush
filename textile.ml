@@ -282,13 +282,19 @@ let parse_stream stream =
     let is_blank = function
       | ' ' | '\t' -> true
       | _ -> false in
+    let is_punct c =
+      try
+        if (c >= '!' && c <= '.') || (c >= ':' && c <= '?') then true
+        else false
+      with Invalid_argument _ -> false in
     let enc_char c =
       if is_blank c then Some Blank
       else if c = '[' then Some Brace
       else None in
-    let is_final_enc str n = function
+    let rec is_final_enc str n = function
       | Blank when String.length str <= n -> true
       | Blank when is_blank str.[n] -> true
+      | Blank when is_punct str.[n] && is_final_enc str (n+1) Blank -> true
       | Brace when str.[n] = ']' -> true
       | _ -> false in
     let find_final_enc_from str start enc_type =
@@ -321,7 +327,7 @@ let parse_stream stream =
           | '%',  _  -> cm (n+1) "%"  (fun x -> Span x)
           | '@',  _  -> cm (n+1) "@"  (fun x -> Code x)
           | '!',  _  -> close_image (n+1) t
-          | '"',  _  -> close_link  n t
+          | '"',  _  -> close_link  (n+1) t
           | _ -> find_modifier str.[n] (n+1) in
         match enc_char prev_char with
         | Some t -> myfunc n t
@@ -354,26 +360,29 @@ let parse_stream stream =
           else loop (pos+1)
         with Not_found -> find_modifier str.[start-1] start in
       loop start
-    and close_link linkstart enc_type =
+    and close_link textstart enc_type =
       try
-        let pos = find_from str "\":" linkstart in
-        let textend = (pos-1) in
-        let rec loop n =
-          if is_final_enc str n enc_type
-          then
-            (let k = match enc_type with Brace -> 1 | _ -> 0 in
-            let parsed_phrase =
-              Link (([], parse_string
-              (String.sub str (linkstart+1) (textend-linkstart))), None,
-              String.sub str (textend+3) (n-textend-3)) in
-            let postfix = parse_string (str_end str (n+k)) in
-            let tail = parsed_phrase :: postfix in
-            if linkstart = 0
-            then tail
-            else (pack_cdata str 0 (linkstart - k)) :: tail)
-          else loop (n+1) in
-        loop (textend+1)
-      with Not_found -> find_modifier str.[linkstart] (linkstart+1)
+        let k = match enc_type with Brace -> 1 | _ -> 0 in
+        let pos = find_from str "\":" textstart in
+        let text = String.sub str textstart (pos-textstart) in
+        let urlstart = (pos+2) in
+        let urlend = find_final_enc_from str urlstart enc_type in
+        print_int urlend;
+        let url = substr str urlstart urlend in
+        let phrase, poststart =
+          Link (([], parse_string text), None, url), urlend in
+        let postfix =
+          parse_string
+            (let s = poststart + k in
+            str_end str s) in
+        let tail =
+          phrase :: postfix in
+        let prefix =
+          String.sub str 0 (textstart - k - 1) in
+        if String.length prefix = 0
+        then tail
+        else (CData prefix) :: tail
+      with Not_found -> find_modifier str.[textstart] (textstart+1)
     and close_image textstart enc_type =
       try
         let k = match enc_type with Brace -> 1 | _ -> 0 in
@@ -395,9 +404,11 @@ let parse_stream stream =
             str_end str s) in
         let tail =
           phrase :: postfix in
-        if textstart = 1
+        let prefix =
+          String.sub str 0 (textstart - k - 1) in
+        if String.length prefix = 0
         then tail
-        else (pack_cdata str 0 (textstart - k - 1)) :: tail
+        else (CData prefix) :: tail
       with Not_found -> find_modifier str.[textstart] (textstart+1) in
     find_modifier ' ' 0 in
 
@@ -485,7 +496,7 @@ let parse_stream stream =
             Stream.junk stream;
             loop ((n, (parse_string (str_end str (n+1)))) :: acc)
         | None -> List.rev acc)
-      | None -> acc in
+      | None -> List.rev acc in
     loop [felm] in
 
   let get_block_modifier fstr =

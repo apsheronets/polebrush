@@ -7,7 +7,6 @@ CAMLOPT = ocamlfind ocamlopt -thread -g $(LIB)
 CAMLDOC = ocamlfind ocamldoc $(LIB)
 CAMLDEP = ocamlfind ocamldep
 LIB = -package $(PACKAGES)
-#PP = -pp "camlp4o"
 PP =
 
 OBJS = $(FILES:.ml=.cmo)

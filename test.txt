@@ -1,4 +1,8 @@
-* Hello "world":http://google.com!
+* !!
+* !one!: two
+* "":
+* "": one two
+* "one": two
 
 * > "example of(link)":http://google.com here
 * >["example o (link)":http://google.com]here

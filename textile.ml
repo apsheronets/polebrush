@@ -346,7 +346,7 @@ let parse_stream stream =
           if is_final_enc str (pos+(String.length cstr)) enc_type then
               let k = match enc_type with Brace -> 1 | _ -> 0 in
               let parsed_phrase = constr (attrs,
-                parse_string (String.sub str start (pos-start))) in
+                parse_string (substr str start pos)) in
               let postfix =
                 parse_string
                   (let s = pos + (String.length cstr) + k in
@@ -363,12 +363,13 @@ let parse_stream stream =
     and close_link textstart enc_type =
       try
         let k = match enc_type with Brace -> 1 | _ -> 0 in
-        let pos = find_from str "\":" textstart in
-        let text = String.sub str textstart (pos-textstart) in
-        let urlstart = (pos+2) in
+        let textend = find_from str "\":" textstart in
+        let urlstart = (textend+2) in
         let urlend = find_final_enc_from str urlstart enc_type in
-        print_int urlend;
+        if (urlstart = urlend) || (textstart = textend) then
+          raise Not_found;
         let url = substr str urlstart urlend in
+        let text = substr str textstart textend in
         let phrase, poststart =
           Link (([], parse_string text), None, url), urlend in
         let postfix =
@@ -383,33 +384,35 @@ let parse_stream stream =
         then tail
         else (CData prefix) :: tail
       with Not_found -> find_modifier str.[textstart] (textstart+1)
-    and close_image textstart enc_type =
+    and close_image imgstart enc_type =
       try
         let k = match enc_type with Brace -> 1 | _ -> 0 in
-        let pos = String.index_from str textstart '!' in
-        let imageurl = String.sub str textstart (pos-textstart) in
-        let phrase, poststart =
-          if is_final_enc str (pos+1) enc_type then
-            Image ([], imageurl, None), (pos+1)
-          else if str.[pos+1] = ':' then
-            let linkstart = (pos+2) in
+        let imgend = String.index_from str imgstart '!' in
+        let imageurl = String.sub str imgstart (imgend-imgstart) in
+        if imgstart = imgend then raise Not_found;
+        let phrase, imgendtstart =
+          if is_final_enc str (imgend+1) enc_type then
+            Image ([], imageurl, None), (imgend+1)
+          else if str.[imgend+1] = ':' then
+            let linkstart = (imgend+2) in
             let linkend = find_final_enc_from str linkstart enc_type in
+            if linkstart = linkend then raise Not_found;
             let linkurl = substr str linkstart linkend in
             Link (([], [Image ([], imageurl, None)]), None, linkurl),
               linkend
           else raise Not_found in
-        let postfix =
+        let imgendtfix =
           parse_string
-            (let s = poststart + k in
+            (let s = imgendtstart + k in
             str_end str s) in
         let tail =
-          phrase :: postfix in
+          phrase :: imgendtfix in
         let prefix =
-          String.sub str 0 (textstart - k - 1) in
+          String.sub str 0 (imgstart - k - 1) in
         if String.length prefix = 0
         then tail
         else (CData prefix) :: tail
-      with Not_found -> find_modifier str.[textstart] (textstart+1) in
+      with Not_found -> find_modifier str.[imgstart] (imgstart+1) in
     find_modifier ' ' 0 in
 
   let get_celllines str peeks start =
@@ -589,3 +592,4 @@ let parse_stream stream =
     with Stream.Failure -> None in
 
   Stream.from (fun _ -> next_block ())
+

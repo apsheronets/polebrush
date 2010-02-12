@@ -1,0 +1,5 @@
+make clean
+make depend
+make
+make doc # if you want documentation
+sudo make install

@@ -60,9 +60,11 @@ type tableoptions =
   options * valign option
 type celltype =
   | Data
-  | Head
+  | Head (* _ *)
+type celloptions =
+  celltype * valign option * cellspan
 type cell =
-  (celltype * tableoptions * cellspan) * line list
+  celloptions * line list
 type row =
   tableoptions * cell list
 type element =
@@ -139,7 +141,7 @@ let parse_stream stream =
 
   let defaultoptions = ([], None, (0, 0)) in
   let defaulttableoptions = (defaultoptions, None) in
-  let defaultcelloptions = (Data, defaulttableoptions, (None, None)) in
+  let defaultcelloptions = (Data, None, (None, None)) in
 
   let get_attr str n =
     (* Extracts an attribute which closes by char c *)
@@ -239,18 +241,18 @@ let parse_stream stream =
     loop ([], None, (0,0)) start in
 
   let get_cell_opts str start =
-    let rec loop (celltype, tableoptions, cellspan) n =
+    let rec loop (celltype, valign, cellspan) n =
       try
         (match get_celltype str n celltype with
-        | Some (celltype, n) -> loop (celltype, tableoptions, cellspan) n
+        | Some (celltype, n) -> loop (celltype, valign, cellspan) n
         | None ->
-        (match get_tableoption str n tableoptions with
-        | Some (tableoptions, n) ->
-            loop (celltype, tableoptions, cellspan) n
+        (match get_valign str n valign with
+        | Some (valign, n) ->
+            loop (celltype, Some valign, cellspan) n
         | None ->
         (match str.[n] with
         | '.' -> (match str.[n+1] with
-            | ' ' -> (celltype, tableoptions, cellspan), (n+2)
+            | ' ' -> (celltype, valign, cellspan), (n+2)
             |  _  -> defaultcelloptions, start)
         |  _  -> defaultcelloptions, start)))
       with Invalid_argument _ -> defaultcelloptions, start in

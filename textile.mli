@@ -85,16 +85,19 @@ type line =
 type cellspan =
   int option * int option
 
-(** Table specific options. May be applied to a table, to a row or to a cell *)
+(** Table specific options. May be applied to a table or to a row. *)
 type tableoptions =
   options * valign option
 
 type celltype =
   | Data
-  | Head
+  | Head (** _ *)
+
+type celloptions =
+  celltype * valign option * cellspan
 
 type cell =
-  (celltype * tableoptions * cellspan) * line list
+  celloptions * line list
 
 type row =
   tableoptions * cell list

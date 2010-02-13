@@ -1,3 +1,6 @@
-version="0.01"
+name = "textile"
+version = "0.01"
+description = "Textile markup language support"
+requires = "extlib"
 archive(byte)="textile.cma"
 archive(native)="textile.cmxa"

@@ -402,16 +402,17 @@ let parse_stream stream =
       try
         let k = match enc_type with Brace -> 1 | _ -> 0 in
         let imgend = String.index_from str imgstart '!' in
-        let imageurl = String.sub str imgstart (imgend-imgstart) in
+        let imageurl, alt = get_title (String.sub str imgstart
+          (imgend-imgstart)) in
         if imgstart = imgend then raise Not_found;
         let phrase, imgendtstart =
           if is_final_enc str (imgend+1) enc_type then
-            Image ([], imageurl, None), (imgend+1)
+            Image ([], imageurl, alt), (imgend+1)
           else if str.[imgend+1] = ':' then
             let linkstart = (imgend+2) in
             let linkend = find_final_enc_from str linkstart enc_type in
             if linkstart = linkend then raise Not_found;
-            let linkurl, alt = get_title (substr str linkstart linkend) in
+            let linkurl = substr str linkstart linkend in
             Link (([], [Image ([], imageurl, alt)]), None, linkurl),
               linkend
           else raise Not_found in

@@ -308,6 +308,21 @@ let parse_stream stream =
       try
         loop start
       with Invalid_argument _ -> raise Not_found in
+    let get_title str =
+      let last = (String.length str) - 1 in
+      if str.[last] = ')' then
+        try
+          let titleend = last - 1 in
+          let rec find_back str c n =
+            if str.[n] = c then n else find_back str c (n-1) in
+          let titlestart = (find_back str '(' (last-1)) + 1 in
+          let strend = titlestart - 2 in
+          if (titlestart = titleend) || (strend < 0)
+          then str, None
+          else substr str 0 (strend+1),
+            Some (substr str titlestart (titleend+1))
+        with Invalid_argument _ -> str, None
+      else str, None in
     if String.length str = 0 then [] else (* Cut empty phrases *)
     let rec find_modifier prev_char n =
       try
@@ -368,9 +383,9 @@ let parse_stream stream =
         if (urlstart = urlend) || (textstart = textend) then
           raise Not_found;
         let url = substr str urlstart urlend in
-        let text = substr str textstart textend in
+        let text, title = get_title (substr str textstart textend) in
         let phrase, poststart =
-          Link (([], parse_string text), None, url), urlend in
+          Link (([], parse_string text), title, url), urlend in
         let postfix =
           parse_string
             (let s = poststart + k in
@@ -396,8 +411,8 @@ let parse_stream stream =
             let linkstart = (imgend+2) in
             let linkend = find_final_enc_from str linkstart enc_type in
             if linkstart = linkend then raise Not_found;
-            let linkurl = substr str linkstart linkend in
-            Link (([], [Image ([], imageurl, None)]), None, linkurl),
+            let linkurl, alt = get_title (substr str linkstart linkend) in
+            Link (([], [Image ([], imageurl, alt)]), None, linkurl),
               linkend
           else raise Not_found in
         let imgendtfix =

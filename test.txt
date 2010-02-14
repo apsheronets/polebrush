@@ -1,15 +1,13 @@
-**ocaml is __functional__ language**
+* > "example of(link)":http://google.com here
+* >["example of(link)":http://google.com]here
+* Hello "world":http://google.com!
+* Hello "world":http://google.com! 
 
 *# !!
 * !one!: two
 * "":
 * "": one two
 * "one": two
-
-* > "example of(link)":http://google.com here
-* >["example o (link)":http://google.com]here
-* Hello "world":http://google.com!
-* Hello "world":http://google.com! 
 
 * > !example of(imag)!:http://google.com here
 * >[!example of(imag)!:http://google.com]here

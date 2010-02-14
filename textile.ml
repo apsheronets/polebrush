@@ -280,6 +280,7 @@ let parse_stream stream =
       with Invalid_argument _ -> raise Invalid_modifier in
     loop defaulttableoptions start in
 
+  (* Not tail recursive *)
   let rec parse_string str =
     let is_blank = function
       | ' ' | '\t' -> true
@@ -307,11 +308,7 @@ let parse_stream stream =
       try
         loop start
       with Invalid_argument _ -> raise Not_found in
-
-    (* Cut empty phrases *)
-    if String.length str = 0 then [] else
-    let pack_cdata str start len =
-      CData (String.sub str start len) in
+    if String.length str = 0 then [] else (* Cut empty phrases *)
     let rec find_modifier prev_char n =
       try
         let myfunc n t =
@@ -358,7 +355,7 @@ let parse_stream stream =
               (* Fixes empty strings in lines like ^"_some line_"$ *)
               if eoll = 0
               then tail
-              else (pack_cdata str 0 (eoll - k)) :: tail
+              else (CData (String.sub str 0 (eoll - k))) :: tail
           else loop (pos+1)
         with Not_found -> find_modifier str.[start-1] start in
       loop start

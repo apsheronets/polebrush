@@ -54,7 +54,9 @@ clean:
 	-rm -f .depend
 	-rm -rf doc
 
-depend:
+depend: .depend
+
+.depend: $(FILES)
 	$(CAMLDEP) $(PP) $(LIB) $(FILES:.ml=.mli) $(FILES) > .depend
 
 FORCE:

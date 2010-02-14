@@ -1,4 +1,6 @@
-* !!
+**ocaml is __functional__ language**
+
+*# !!
 * !one!: two
 * "":
 * "": one two

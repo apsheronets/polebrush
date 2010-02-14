@@ -33,19 +33,21 @@ type attr =
   | Style    of string (** p\{color:red\}. *)
   | Language of string (** p\[fr-fr\]. *) (* without backslashes :) *)
 
-(** Alignment option. *)
+(** Text-alignment option. *)
 type talign =
   | Right   (** > *)
   | Left    (** < *)
   | Center  (** = *)
   | Justify (** <> *)
 
+(** Vertical alignment. *)
 type valign =
   | Top    (** ^ *)
   | Middle (** - *)
   | Bottom (** ~ *)
 
-(** Left and right padding consistently. Define with ( and ) in block modifier *)
+(** Left and right padding consistently. Define with ( and ) in block
+modifier. (0,0) if padding doesn't set. *)
 type padding =
   int * int
 
@@ -56,23 +58,24 @@ type options =
 
 (** Phrases may be presents like HTML tags for text formatting. For
 example, **ocaml is __functional__ language** is equivalent for <b>ocaml
-is <i>functional</i> language</b> or [Bold [CData "ocaml is "; Italic
-[CData "functional"]; CData " language"]] *)
+is <i>functional</i> language</b> or [Bold ([], [CData "ocaml is ";
+Italic ([], [CData "functional"]); CData " language"])] *)
+
 type phrase =
   | CData       of string
-  | Emphasis    of (attr list * phrase list)   (** _ *)
-  | Strong      of (attr list * phrase list)   (** * *)
-  | Italic      of (attr list * phrase list)   (** __ *)
-  | Bold        of (attr list * phrase list)   (** ** *)
-  | Citation    of (attr list * phrase list)   (** ?? *)
-  | Deleted     of (attr list * phrase list)   (** - *)
-  | Inserted    of (attr list * phrase list)   (** + *)
-  | Superscript of (attr list * phrase list)   (** ^ *)
-  | Subscript   of (attr list * phrase list)   (** ~ *)
-  | Span        of (attr list * phrase list)   (** % *)
-  | Code        of (attr list * phrase list)   (** @ *)
+  | Emphasis    of (attr list * phrase list) (** _ *)
+  | Strong      of (attr list * phrase list) (** * *)
+  | Italic      of (attr list * phrase list) (** __ *)
+  | Bold        of (attr list * phrase list) (** ** *)
+  | Citation    of (attr list * phrase list) (** ?? *)
+  | Deleted     of (attr list * phrase list) (** - *)
+  | Inserted    of (attr list * phrase list) (** + *)
+  | Superscript of (attr list * phrase list) (** ^ *)
+  | Subscript   of (attr list * phrase list) (** ~ *)
+  | Span        of (attr list * phrase list) (** % *)
+  | Code        of (attr list * phrase list) (** @ *)
   | Acronym of string * string               (** ABC(Always Be Closing *)
-  | Image of attr list * string * string option (** !/fear.jpg(my wife)! *)
+  | Image of attr list * string * string option (** !imgsrc(alt)! *)
   | Link of (attr list * phrase list) *
       string option * string (** "linktext(title)":url *)
 
@@ -80,30 +83,38 @@ type phrase =
 type line =
   phrase list
 
-(** {3 Tables} *)
+(** One element of a list. It's an line an number and depth of element,
+or just count of asterisk or sharps. *)
+type element =
+  int * line
 
-type cellspan =
-  int option * int option
+(** {3 Tables} *)
 
 (** Table specific options. May be applied to a table or to a row. *)
 type tableoptions =
   options * valign option
 
+(** In textile symbol _ defines cell as head a table header. Otherwise
+it's a regular data cell. *)
 type celltype =
-  | Data
-  | Head (** _ *)
+  | Data (** | ... | *)
+  | Head (** |_. ... | *)
 
+(** Colspan and rowspan. *)
+type cellspan =
+  int option * int option
+
+(** Cell specific options. *)
 type celloptions =
   celltype * valign option * cellspan
 
+(** A cell in row. *)
 type cell =
   celloptions * line list
 
+(** A row in table. *)
 type row =
   tableoptions * cell list
-
-type element =
-  int * line
 
 (** {2 Blocks} *)
 
@@ -119,8 +130,10 @@ type block =
   | Pre        of (options * string list)   (** pre. *)
   | Numlist    of (options * element list)  (** # *)
   | Bulllist   of (options * element list)  (** * *)
-  | Table      of (tableoptions * row list) (** |t|a|b|l|e| *)
+  | Table      of (tableoptions * row list) (** |t|a|b| *)
 
 (** {2 Functions} *)
 
 val parse_stream : string Stream.t -> block Stream.t
+
+val parse_list : string list -> block list

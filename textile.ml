@@ -24,19 +24,19 @@ type attr =
   | Language of string (* p[fr-fr]. *)
 type phrase =
   | CData       of string
-  | Emphasis    of (attr list * phrase list)   (* _ *)
-  | Strong      of (attr list * phrase list)   (* * *)
-  | Italic      of (attr list * phrase list)   (* __ *)
-  | Bold        of (attr list * phrase list)   (* ** *)
-  | Citation    of (attr list * phrase list)   (* ?? *)
-  | Deleted     of (attr list * phrase list)   (* - *)
-  | Inserted    of (attr list * phrase list)   (* + *)
-  | Superscript of (attr list * phrase list)   (* ^ *)
-  | Subscript   of (attr list * phrase list)   (* ~ *)
-  | Span        of (attr list * phrase list)   (* % *)
-  | Code        of (attr list * phrase list)   (* @ *)
-  | Acronym of string * string                 (* ABC(Always Be Closing *)
-  | Image of attr list * string * string option (* !/fear.jpg(my wife)! *)
+  | Emphasis    of (attr list * phrase list) (* _ *)
+  | Strong      of (attr list * phrase list) (* * *)
+  | Italic      of (attr list * phrase list) (* __ *)
+  | Bold        of (attr list * phrase list) (* ** *)
+  | Citation    of (attr list * phrase list) (* ?? *)
+  | Deleted     of (attr list * phrase list) (* - *)
+  | Inserted    of (attr list * phrase list) (* + *)
+  | Superscript of (attr list * phrase list) (* ^ *)
+  | Subscript   of (attr list * phrase list) (* ~ *)
+  | Span        of (attr list * phrase list) (* % *)
+  | Code        of (attr list * phrase list) (* @ *)
+  | Acronym of string * string               (* ABC(Always Be Closing *)
+  | Image of attr list * string * string option (* !imgsrc(alt)! *)
   | Link of (attr list * phrase list) *
       string option * string (* "linktext(title)":url *)
 type line =
@@ -78,7 +78,7 @@ type block =
   | Pre        of (options * string list)   (** pre. *)
   | Numlist    of (options * element list)  (** # *)
   | Bulllist   of (options * element list)  (** * *)
-  | Table      of (tableoptions * row list) (** |t|a|b|l|e| *)
+  | Table      of (tableoptions * row list) (** |t|a|b| *)
 
 (* There are internal exceptions. They must be even catched
  * inside the module *)
@@ -592,3 +592,13 @@ let parse_stream stream =
 
   Stream.from (fun _ -> next_block ())
 
+let list_of_stream stream =
+  let rec loop acc =
+    try
+      let e = Stream.next stream in
+      loop (e::acc)
+    with Stream.Failure -> List.rev acc in
+  loop []
+
+let parse_list l =
+  list_of_stream (parse_stream (Stream.of_list l))

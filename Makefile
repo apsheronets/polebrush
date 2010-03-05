@@ -2,8 +2,9 @@ PACKAGES = extlib
 FILES = textile.ml
 
 LIBNAME = textile
-CAMLC = ocamlfind ocamlc -thread -g $(LIB)
-CAMLOPT = ocamlfind ocamlopt -thread -g $(LIB)
+VERSION :=$(shell head -n 1 VERSION)
+CAMLC = ocamlfind ocamlc -g $(LIB)
+CAMLOPT = ocamlfind ocamlopt -g $(LIB)
 CAMLDOC = ocamlfind ocamldoc $(LIB)
 CAMLDEP = ocamlfind ocamldep
 LIB = -package $(PACKAGES)
@@ -15,7 +16,15 @@ OPTOBJS = $(FILES:.ml=.cmx)
 CMA = textile.cma
 CMXA = textile.cmxa
 
-all: byte native
+all: META byte native
+
+META: META.in VERSION
+	cp $< $@
+	sed "s/_NAME_/$(LIBNAME)/" -i $@
+	sed "s/_VERSION_/$(VERSION)/" -i $@
+	sed "s/_REQUIRES_/$(PACKAGES)/" -i $@
+	sed "s/_BYTE_/$(CMA)/" -i $@
+	sed "s/_NATIVE_/$(CMXA)/" -i $@
 
 byte: depend $(CMA)
 
@@ -53,6 +62,7 @@ clean:
 	-rm -f *.cm[ioxa] *.o *.a $(CMXA) *~ $(NAME)
 	-rm -f .depend
 	-rm -rf doc
+	-rm -f META
 
 depend: .depend
 

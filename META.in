@@ -1,0 +1,6 @@
+name = "_NAME_"
+version = "_VERSION_"
+description = "textile markup language support"
+requires = "_REQUIRES_"
+archive(byte)="_BYTE_"
+archive(native)="_NATIVE_"

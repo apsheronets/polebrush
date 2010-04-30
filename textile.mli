@@ -94,11 +94,11 @@ type element =
 type tableoptions =
   options * valign option
 
-(** In textile symbol _ defines cell as head a table header. Otherwise
+(** In textile symbol _ defines a cell as a table header. Otherwise
 it's a regular data cell. *)
 type celltype =
-  | Data (** | ... | *)
-  | Head (** |_. ... | *)
+  | Data (** | <...> | *)
+  | Head (** |_. <...> | *)
 
 (** Colspan and rowspan. *)
 type cellspan =
@@ -134,6 +134,9 @@ type block =
 
 (** {2 Functions} *)
 
-val parse_stream : string Stream.t -> block Stream.t
+val of_stream : string Stream.t -> block Stream.t
 
 val parse_list : string list -> block list
+
+(** Function will not escape special HTML chars if [escape] is false. Default is true. *)
+val to_xhtml : ?escape:bool -> block Stream.t -> string Stream.t

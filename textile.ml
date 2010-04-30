@@ -16,6 +16,7 @@
  * Copyright 2010 Alexander Markov *)
 
 open ExtLib
+open Printf
 
 type attr =
   | Class    of string (* p(myclass). *)
@@ -111,7 +112,7 @@ let substr str s e =
   String.sub str s (e - s)
 
 (* find_from str sub start returns the character number of the first
- * occurence of sstring sub in string str after position start. Raises
+ * occurence of string sub in string str after position start. Raises
  * Not_found if there are no such substring after position start. *)
 let find_from str sub start =
   let sublen = String.length sub in
@@ -137,7 +138,18 @@ let rec peekn stream n =
   try Some (List.nth l n)
   with Failure _ -> None
 
-let parse_stream stream =
+(* Returns the substring between pos and the first occurence of
+ * substring sub in string s and position in string after that
+ * substring.
+ * @raise Not_found if sub does not occur in s or received empty
+ * substring. *)
+let sub_before s pos sub =
+  let cpos = find_from s sub pos in
+  let res = substr s pos cpos in
+  if (String.length res) = 0 then raise Not_found
+  else (cpos + (String.length sub)), res
+
+let of_stream stream =
 
   let defaultoptions = ([], None, (0, 0)) in
   let defaulttableoptions = (defaultoptions, None) in
@@ -268,7 +280,7 @@ let parse_stream stream =
           |  _  -> defaulttableoptions, start)
       |  _  -> defaulttableoptions, start)) in
     loop defaulttableoptions start in
-  let get_table_opts str start =
+  (*let get_table_opts str start =
     let rec loop tableoptions n =
       try
         (match get_tableoption str n tableoptions with
@@ -278,7 +290,7 @@ let parse_stream stream =
         | '.' when (n+1) = (String.length str) -> tableoptions
         | _ -> raise Invalid_modifier))
       with Invalid_argument _ -> raise Invalid_modifier in
-    loop defaulttableoptions start in
+    loop defaulttableoptions start in*)
 
   (* Not tail recursive *)
   let rec parse_string str =
@@ -308,6 +320,23 @@ let parse_stream stream =
       try
         loop start
       with Invalid_argument _ -> raise Not_found in
+    let sub_before_enc s pos enc_type =
+      let k = match enc_type with Brace -> 1 | _ -> 0 in
+      let cpos = find_final_enc_from str pos enc_type in
+      let res = substr s pos cpos in
+      if (String.length res) = 0 then raise Not_found
+      else cpos + k, res in
+    let parse_next str beg phrase pos =
+      let postfix =
+        parse_string
+          (str_end str beg) in
+      let tail =
+        phrase :: postfix in
+      let prefix =
+        String.sub str 0 pos in
+      if String.length prefix = 0
+      then tail
+      else (CData prefix) :: tail in
     let get_title str =
       let last = (String.length str) - 1 in
       if str.[last] = ')' then
@@ -326,7 +355,7 @@ let parse_stream stream =
     if String.length str = 0 then [] else (* Cut empty phrases *)
     let rec find_modifier prev_char n =
       try
-        let myfunc n t =
+        let f n t =
           let cm = close_modifier n t in
           match str.[n], str.[n+1] with
           | '_', '_' -> cm (n+2) "__" (fun x -> Italic x)
@@ -344,7 +373,7 @@ let parse_stream stream =
           | '"',  _  -> close_link  (n+1) t
           | _ -> find_modifier str.[n] (n+1) in
         match enc_char prev_char with
-        | Some t -> myfunc n t
+        | Some t -> f n t
         | None -> find_modifier str.[n] (n+1)
       (* If we have passed whole string without any modifier
        * then we simply pack it in CData *)
@@ -359,14 +388,14 @@ let parse_stream stream =
           let pos = find_from str cstr n in
           if is_final_enc str (pos+(String.length cstr)) enc_type then
               let k = match enc_type with Brace -> 1 | _ -> 0 in
-              let parsed_phrase = constr (attrs,
+              let phrase = constr (attrs,
                 parse_string (substr str start pos)) in
               let postfix =
                 parse_string
                   (let s = pos + (String.length cstr) + k in
                   str_end str s) in
               let tail =
-                parsed_phrase :: postfix in
+                phrase :: postfix in
               (* Fixes empty strings in lines like ^"_some line_"$ *)
               if eoll = 0
               then tail
@@ -374,60 +403,31 @@ let parse_stream stream =
           else loop (pos+1)
         with Not_found -> find_modifier str.[start-1] start in
       loop start
-    and close_link textstart enc_type =
+    and close_link start enc_type =
       try
         let k = match enc_type with Brace -> 1 | _ -> 0 in
-        let textend = find_from str "\":" textstart in
-        let urlstart = (textend+2) in
-        let urlend = find_final_enc_from str urlstart enc_type in
-        if (urlstart = urlend) || (textstart = textend) then
-          raise Not_found;
-        let url = substr str urlstart urlend in
-        let text, title = get_title (substr str textstart textend) in
+        let urlstart, text_and_title = sub_before str start "\":" in
+        let text, title = get_title text_and_title in
+        let poststart, url = sub_before_enc str urlstart enc_type in
+        let phrase =
+          Link (([], parse_string text), title, url) in
+        parse_next str (poststart + k) phrase (start - k - 1)
+      with Not_found -> find_modifier str.[start] (start+1)
+    and close_image start enc_type =
+      try
+        let k = match enc_type with Brace -> 1 | _ -> 0 in
+        let pos, src_and_alt = sub_before str start "!" in
+        let src, alt = get_title (src_and_alt) in
         let phrase, poststart =
-          Link (([], parse_string text), title, url), urlend in
-        let postfix =
-          parse_string
-            (let s = poststart + k in
-            str_end str s) in
-        let tail =
-          phrase :: postfix in
-        let prefix =
-          String.sub str 0 (textstart - k - 1) in
-        if String.length prefix = 0
-        then tail
-        else (CData prefix) :: tail
-      with Not_found -> find_modifier str.[textstart] (textstart+1)
-    and close_image imgstart enc_type =
-      try
-        let k = match enc_type with Brace -> 1 | _ -> 0 in
-        let imgend = String.index_from str imgstart '!' in
-        let imageurl, alt = get_title (String.sub str imgstart
-          (imgend-imgstart)) in
-        if imgstart = imgend then raise Not_found;
-        let phrase, imgendtstart =
-          if is_final_enc str (imgend+1) enc_type then
-            Image ([], imageurl, alt), (imgend+1)
-          else if str.[imgend+1] = ':' then
-            let linkstart = (imgend+2) in
-            let linkend = find_final_enc_from str linkstart enc_type in
-            if linkstart = linkend then raise Not_found;
-            let linkurl = substr str linkstart linkend in
-            Link (([], [Image ([], imageurl, alt)]), None, linkurl),
-              linkend
+          if is_final_enc str pos enc_type then
+            Image ([], src, alt), pos
+          else if str.[pos] = ':' then
+            let poststart, url = sub_before_enc str (pos+1) enc_type in
+            Link (([], [Image ([], src, alt)]), None, url),
+              poststart
           else raise Not_found in
-        let imgendtfix =
-          parse_string
-            (let s = imgendtstart + k in
-            str_end str s) in
-        let tail =
-          phrase :: imgendtfix in
-        let prefix =
-          String.sub str 0 (imgstart - k - 1) in
-        if String.length prefix = 0
-        then tail
-        else (CData prefix) :: tail
-      with Not_found -> find_modifier str.[imgstart] (imgstart+1) in
+        parse_next str (poststart + k) phrase (start - k - 1)
+      with Not_found -> find_modifier str.[start] (start+1) in
     find_modifier ' ' 0 in
 
   let get_celllines str peeks start =
@@ -617,4 +617,160 @@ let list_of_stream stream =
   loop []
 
 let parse_list l =
-  list_of_stream (parse_stream (Stream.of_list l))
+  list_of_stream (of_stream (Stream.of_list l))
+
+let xhtml_of_block ?(escape=true) block =
+  let esc s =
+    if escape then
+      let strlen = String.length s in
+      let buf = Buffer.create strlen in
+      let f = function
+        | '&' -> Buffer.add_string buf "&amp;"
+        | '<' -> Buffer.add_string buf "&lt;"
+        | '>' -> Buffer.add_string buf "&gt;"
+        | '"' -> Buffer.add_string buf "&quot;"
+        |  c  -> Buffer.add_char buf c in
+      String.iter f s;
+      Buffer.contents buf
+    else s in
+
+  let parse_attr = function
+    | Class s    -> sprintf "class=%s" (esc s)
+    | Id s       -> sprintf "id=%s" (esc s)
+    | Style s    -> sprintf "style=%s" (esc s)
+    | Language s -> sprintf "lang=%s" (esc s) in
+
+  let parse_attrs attrs =
+    (* FIXME: slow *)
+    let buf = Buffer.create 80 in
+    List.iter (fun attr ->
+      Buffer.add_char buf ' ';
+      Buffer.add_string buf (parse_attr attr)) attrs;
+    Buffer.contents buf in
+  let pa = parse_attrs in
+
+  let rec parse_phrase =
+    let p = sprintf in
+    let pl = parse_line in function
+    | CData str -> (esc str)
+    | Strong      (a,l) -> p "<strong%s>%s</strong>" (pa a) (pl l)
+    | Italic      (a,l) -> p "<i%s>%s</i>" (pa a) (pl l)
+    | Bold        (a,l) -> p "<b%s>%s</b>" (pa a) (pl l)
+    | Emphasis    (a,l) -> p "<em%s>%s</em>" (pa a) (pl l)
+    | Citation    (a,l) -> p "<cite%s>%s</cite>" (pa a) (pl l)
+    | Deleted     (a,l) -> p "<del%s>%s</del>" (pa a) (pl l)
+    | Inserted    (a,l) -> p "<ins%s>%s</ins>" (pa a) (pl l)
+    | Superscript (a,l) -> p "<sup%s>%s</sup>" (pa a) (pl l)
+    | Subscript   (a,l) -> p "<sub%s>%s</sub>" (pa a) (pl l)
+    | Span        (a,l) -> p "<span%s>%s</span>" (pa a) (pl l)
+    | Code        (a,l) -> p "<code%s>%s</code>" (pa a) (pl l)
+    | Acronym (a, b) ->
+        p "<acronym title=\"%s\">%s</acronym>" (esc b) (esc a)
+    | Image (a, src, alt) ->
+        (let alt = match alt with
+        | Some s -> p "alt=\"%s\"" (esc s)
+        | None -> "alt=\"\"" in
+        p "<img%s src=\"%s\" %s) />" (pa a) (esc src) alt)
+    | Link ((attrs, l), title, url) ->
+        (let title = match title with
+          | Some s -> sprintf " title=%S" (esc s)
+          | None -> "" in
+        p "<a%s%s href=\"%s\">%s</a>" (pa attrs) title (esc url) (pl l))
+
+  and parse_line line =
+    String.concat "" (List.map parse_phrase line) in
+
+  let parse_lines lines =
+    String.concat "<br/>" (List.map parse_line lines) in
+
+  let parse_strings strings=
+    String.concat "\n" (List.map esc strings) in
+
+  let parse_talign = function
+    | Some talign ->
+        (let s = match talign with
+        | Right   -> "right"
+        | Left    -> "left"
+        | Center  -> "center"
+        | Justify -> "justify" in
+        sprintf " style=\"text-align:%s" s)
+    | None -> "" in
+
+  let parse_padding = function
+    | 0, 0 -> ""
+    | l, 0 ->
+        sprintf " style=\"padding-left:%d em\"" l
+    | 0, r ->
+        sprintf " style=\"padding-right:%d em\"" r
+    | l, r ->
+        sprintf " style=\"padding-left:%d em; padding-right:%d em\"" l r in
+
+  let parse_options (attrs, talign, padding) =
+    String.concat "" [parse_attrs attrs;
+      parse_talign talign;
+      parse_padding padding] in
+
+  let parse_valign = function
+    | Some x ->
+        (let s = match x with
+        | Top -> "top"
+        | Middle -> "middle"
+        | Bottom -> "bottom" in
+        sprintf " style=\"vertical-align:%s\"" s)
+    | None -> "" in
+
+  let parse_tableoptions (opts, valign) =
+    String.concat "" [parse_options opts; parse_valign valign] in
+
+  let po = parse_options in
+  let pt = parse_tableoptions in
+
+  let parse_cells cells =
+    String.concat "" (List.map (fun ((celltype, topts, cellspan), lines) ->
+      let tag = match celltype with
+      | Data -> "td" | Head -> "th" in
+      (* FIXME: topts *)
+      sprintf "<%s>%s<%s>" tag (parse_lines lines) tag) cells) in
+
+  let parse_rows rows =
+    String.concat "" (List.map (fun (topts, cells) ->
+      sprintf "<tr%s>%s</tr>" (pt topts) (parse_cells cells)) rows) in
+
+  let parse_list elements =
+    (* FIXME: not correct *)
+    String.concat "" (List.map (fun (level, line) ->
+      sprintf "<li>%s</li>" (parse_line line)) elements) in
+
+  let pl = parse_lines in
+  match block with
+  | Header (i, (opts, lines)) ->
+      sprintf "<h%d%s>%s</h%d>" i (po opts) (pl lines) i
+  | Blockquote (opts, lines) ->
+      let popts = po opts in
+      sprintf "<blockquote%s><p%s>%s</p></blockquote>"
+        popts popts (pl lines)
+  | Footnote (i, (opts, lines)) ->
+      sprintf "<p id=\"fn%d\" class=\"footnote\"%s>%s</p>"
+        i (po opts) (pl lines)
+  | Paragraph (opts, lines) ->
+      sprintf "<p%s>%s</p>" (po opts) (pl lines)
+  | Blockcode (opts, strings) ->
+      let popts = po opts in
+      sprintf "<pre%s><code%s>%s</code></pre>"
+        popts popts (parse_strings strings)
+  | Pre (opts, strings) ->
+      sprintf "<pre%s>%s</pre>"
+        (po opts) (parse_strings strings)
+  | Numlist (opts, elements) -> (* FIXME: opts *)
+      sprintf "<ol>%s</ol>" (parse_list elements)
+  | Bulllist (opts, elements) ->
+      sprintf "<ul>%s</ul>" (parse_list elements)
+  | Table (topts, rows) ->
+      sprintf "<table%s>%s</table>" (pt topts) (parse_rows rows)
+
+let to_xhtml ?(escape=true) stream =
+  let next _ =
+    try
+      Some (xhtml_of_block ~escape (Stream.next stream))
+    with Stream.Failure -> None in
+  Stream.from next

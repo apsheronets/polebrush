@@ -1,7 +1,9 @@
 * > "example of(link)":http://google.com here
 * >["example of(link)":http://google.com]here
+* >["":broken
 * Hello "world":http://google.com!
 * Hello "world":http://google.com! 
+* Hello "world(title)":http://google.com! 
 
 *# !!
 * !one!: two
@@ -9,12 +11,12 @@
 * "": one two
 * "one": two
 
-* > !example of(imag)!:http://google.com here
-* >[!example of(imag)!:http://google.com]here
-* > !example of(imag)! here
-* >[!example of(imag)!]here
+* > !example of(image)!:http://google.com here
+* >[!example of(image)!:http://google.com]here
+* > !example of(image)! here
+* >[!example of(image)!]here
 * !http://farm3.static.flickr.com/2730/4308428995_68a692b3bc.jpg!
-* > !example of(imag)!
+* > !example of(image)!
 
 * *Hello world!*
 * Hello again.

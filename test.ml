@@ -26,6 +26,8 @@ let read_file file =
 
 let teststream = read_file "test.txt"
 
-let a = Textile.parse_stream teststream
+let a = Textile.of_stream teststream
+
+let b = Textile.to_xhtml a
 
 (* make && ocaml /usr/lib/ocaml/extlib/extLib.cma textile.cma -init test.ml *)

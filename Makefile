@@ -36,6 +36,12 @@ native: depend $(CMXA)
 $(CMXA): $(OPTOBJS)
 	$(CAMLOPT) -a -o $(CMXA) $(OPTOBJS)
 
+itextile.cmx: $(CMXA) itextile.ml
+	$(CAMLOPT) $(CMXA) -c itextile.ml
+
+itextile: $(CMXA) itextile.cmx
+	$(CAMLOPT) -linkpkg -o $@ $^
+
 install:
 	ocamlfind install $(LIBNAME) META *.cmi *.cma $(MLI) $(wildcard *.cmxa) $(wildcard *.a)
 
@@ -63,6 +69,7 @@ clean:
 	-rm -f .depend
 	-rm -rf doc
 	-rm -f META
+	-rm -f itextile
 
 depend: .depend
 

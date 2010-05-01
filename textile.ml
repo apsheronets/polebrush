@@ -670,7 +670,7 @@ let xhtml_of_block ?(escape=true) block =
         (let alt = match alt with
         | Some s -> p "alt=\"%s\"" (esc s)
         | None -> "alt=\"\"" in
-        p "<img%s src=\"%s\" %s) />" (pa a) (esc src) alt)
+        p "<img%s %s src=\"%s\" />" (pa a) alt (esc src))
     | Link ((attrs, l), title, url) ->
         (let title = match title with
           | Some s -> sprintf " title=%S" (esc s)
@@ -681,7 +681,7 @@ let xhtml_of_block ?(escape=true) block =
     String.concat "" (List.map parse_phrase line) in
 
   let parse_lines lines =
-    String.concat "<br/>" (List.map parse_line lines) in
+    String.concat "<br />" (List.map parse_line lines) in
 
   let parse_strings strings=
     String.concat "\n" (List.map esc strings) in
@@ -699,11 +699,11 @@ let xhtml_of_block ?(escape=true) block =
   let parse_padding = function
     | 0, 0 -> ""
     | l, 0 ->
-        sprintf " style=\"padding-left:%d em\"" l
+        sprintf " style=\"padding-left:%dem\"" l
     | 0, r ->
-        sprintf " style=\"padding-right:%d em\"" r
+        sprintf " style=\"padding-right:%dem\"" r
     | l, r ->
-        sprintf " style=\"padding-left:%d em; padding-right:%d em\"" l r in
+        sprintf " style=\"padding-left:%dem; padding-right:%dem\"" l r in
 
   let parse_options (attrs, talign, padding) =
     String.concat "" [parse_attrs attrs;

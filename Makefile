@@ -3,7 +3,7 @@ FILES = textile.ml
 
 LIBNAME = textile
 VERSION :=$(shell head -n 1 VERSION)
-DESCRIPTION = "textile markup language support"
+DESCRIPTION = textile markup language support
 
 CAMLC = ocamlfind ocamlc -g $(LIB)
 CAMLOPT = ocamlfind ocamlopt -g $(LIB)

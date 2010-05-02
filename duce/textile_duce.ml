@@ -14,11 +14,6 @@ let xmlfold f1 f2 l =
       fold f2 (f1 h) t
     with Failure _ -> raise (Failure "xmlfold")
 
-let string_of_xhtml x =
-  let b = Buffer.create 256 in
-  Xhtmlpretty_duce.pretty_print_xhtml (Buffer.add_string b) x;
-  Buffer.contents b
-
 exception Invalid_textile of string
 
 let xhtml_of_block =
@@ -195,5 +190,5 @@ let xhtml_of_textile stream =
     with Stream.Failure -> acc in
   loop {{ [] }}
 
-(*let xhtml_of_textile_list l =
-  xhtml_of_textile (Stream.of_list l)*)
+let xhtml_of_textile_list l =
+  xhtml_of_textile (Stream.of_list l)

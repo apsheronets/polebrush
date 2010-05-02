@@ -118,9 +118,7 @@ type row =
 
 (** {2 Blocks} *)
 
-(** Extended blocks parse automaticly so there is no difference for you between normal and extended blocks.
-
-You have to escape symbols in Blockcode and Pre by yourself because I don't know in what format will you convert the AST! *)
+(** Extended blocks parse automaticly so there is no difference for you between normal and extended blocks. *)
 type block =
   | Header     of int * (options * line list) (** h1. *)
   | Blockquote of (options * line list)       (** bq. *)

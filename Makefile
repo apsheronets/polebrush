@@ -3,10 +3,13 @@ FILES = textile.ml
 
 LIBNAME = textile
 VERSION :=$(shell head -n 1 VERSION)
+DESCRIPTION = "textile markup language support"
+
 CAMLC = ocamlfind ocamlc -g $(LIB)
 CAMLOPT = ocamlfind ocamlopt -g $(LIB)
 CAMLDOC = ocamlfind ocamldoc $(LIB)
 CAMLDEP = ocamlfind ocamldep
+
 LIB = -package $(PACKAGES)
 PP =
 
@@ -22,6 +25,7 @@ META: META.in VERSION
 	cp $< $@
 	sed "s/_NAME_/$(LIBNAME)/" -i $@
 	sed "s/_VERSION_/$(VERSION)/" -i $@
+	sed "s/_DESCRIPTION_/$(DESCRIPTION)/" -i $@
 	sed "s/_REQUIRES_/$(PACKAGES)/" -i $@
 	sed "s/_BYTE_/$(CMA)/" -i $@
 	sed "s/_NATIVE_/$(CMXA)/" -i $@

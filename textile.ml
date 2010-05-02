@@ -640,13 +640,14 @@ let xhtml_of_block ?(escape=true) block =
     | Style s    -> sprintf "style=%s" (esc s)
     | Language s -> sprintf "lang=%s" (esc s) in
 
-  let parse_attrs attrs =
-    (* FIXME: slow *)
-    let buf = Buffer.create 80 in
-    List.iter (fun attr ->
-      Buffer.add_char buf ' ';
-      Buffer.add_string buf (parse_attr attr)) attrs;
-    Buffer.contents buf in
+  let parse_attrs = function
+    | [] -> ""
+    | attrs ->
+        let buf = Buffer.create 80 in
+        List.iter (fun attr ->
+          Buffer.add_char buf ' ';
+          Buffer.add_string buf (parse_attr attr)) attrs;
+        Buffer.contents buf in
   let pa = parse_attrs in
 
   let rec parse_phrase =

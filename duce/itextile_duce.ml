@@ -10,7 +10,7 @@ let xhtml = Stream.from (fun _ ->
 
 let print_xhtml =
   Xhtmlpretty_duce.pretty_print_xhtml
-    print_string 
+    print_string
 
 let _ =
   Stream.iter (print_xhtml) xhtml;

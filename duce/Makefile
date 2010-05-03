@@ -3,7 +3,7 @@ FILES = textile_duce.ml
 
 LIBNAME = textile_duce
 VERSION :=$(shell head -n 1 ../VERSION)
-DESCRIPTION = addition for package textile: ocamlduce XHTML support for ocsigen
+DESCRIPTION = ocamlduce XHTML support for ocsigen
 
 DUCEFIND = ocamlducefind
 DUCEC   = $(DUCEFIND) ocamlc -g -thread $(LIB)
@@ -23,12 +23,13 @@ all: byte native
 
 META: META.in ../VERSION
 	cp $< $@
-	sed "s/_NAME_/$(LIBNAME)/" -i $@
+	sed "s/_NAME_/duce/" -i $@
 	sed "s/_VERSION_/$(VERSION)/" -i $@
 	sed "s/_DESCRIPTION_/$(DESCRIPTION)/" -i $@
 	sed "s/_REQUIRES_/$(PACKAGES)/" -i $@
 	sed "s/_BYTE_/$(CMA)/" -i $@
 	sed "s/_NATIVE_/$(CMXA)/" -i $@
+	cat $@ >> ../META
 
 byte: depend $(CMA) META
 

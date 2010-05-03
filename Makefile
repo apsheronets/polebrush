@@ -32,11 +32,9 @@ ifndef DUCE
 endif
 
 ifeq "$(DUCE)" "yes"
-  MAKEDOCS = $(CAMLDOC) -d doc -html *.mli
   MAKEDUCE = make -C duce; cp duce/{*.cmi,*.cma,*.cmxa,*.a} ./
   CLEANDUCE = make -C duce clean
 else
-  MAKEDOCS = $(DUCEDOC) -d doc -html *.mli duce/*.mli
   MAKEDUCe =
   CLEANDUCE =
 endif
@@ -89,7 +87,7 @@ uninstall:
 
 doc:
 	-mkdir -p doc
-	$(MAKEDOCS)
+	$(CAMLDOC) -d doc -html *.mli
 
 clean:
 	-rm -f *.cm[ioxa] *.o *.a *.cmxa *~ $(NAME)

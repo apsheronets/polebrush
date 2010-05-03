@@ -731,7 +731,7 @@ let xhtml_of_block ?(escape=true) block =
       let tag = match celltype with
       | Data -> "td" | Head -> "th" in
       (* FIXME: topts *)
-      sprintf "<%s>%s<%s>" tag (parse_lines lines) tag) cells) in
+      sprintf "<%s>%s</%s>" tag (parse_lines lines) tag) cells) in
 
   let parse_rows rows =
     String.concat "" (List.map (fun (topts, cells) ->

@@ -635,10 +635,10 @@ let xhtml_of_block ?(escape=true) block =
     else s in
 
   let parse_attr = function
-    | Class s    -> sprintf "class=%s" (esc s)
-    | Id s       -> sprintf "id=%s" (esc s)
-    | Style s    -> sprintf "style=%s" (esc s)
-    | Language s -> sprintf "lang=%s" (esc s) in
+    | Class s    -> sprintf "class=\"%s\"" (esc s)
+    | Id s       -> sprintf "id=\"%s\"" (esc s)
+    | Style s    -> sprintf "style=\"%s\"" (esc s)
+    | Language s -> sprintf "lang=\"%s\"" (esc s) in
 
   let parse_attrs = function
     | [] -> ""
@@ -694,7 +694,7 @@ let xhtml_of_block ?(escape=true) block =
         | Left    -> "left"
         | Center  -> "center"
         | Justify -> "justify" in
-        sprintf " style=\"text-align:%s" s)
+        sprintf " style=\"text-align:%s\"" s)
     | None -> "" in
 
   let parse_padding = function

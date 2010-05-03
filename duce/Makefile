@@ -19,7 +19,7 @@ OPTOBJS = $(FILES:.ml=.cmx)
 CMA = $(LIBNAME).cma
 CMXA = $(LIBNAME).cmxa
 
-all: META byte native
+all: byte native
 
 META: META.in ../VERSION
 	cp $< $@
@@ -30,12 +30,12 @@ META: META.in ../VERSION
 	sed "s/_BYTE_/$(CMA)/" -i $@
 	sed "s/_NATIVE_/$(CMXA)/" -i $@
 
-byte: depend $(CMA)
+byte: depend $(CMA) META
 
 $(CMA): $(OBJS)
 	$(DUCEC) -a -o $(CMA) $(OBJS)
 
-native: depend $(CMXA)
+native: depend $(CMXA) META
 
 $(CMXA): $(OPTOBJS)
 	$(DUCEOPT) -a -o $(CMXA) $(OPTOBJS)

@@ -114,17 +114,24 @@ let substr str s e =
 (* find_from str sub start returns the character number of the first
  * occurence of string sub in string str after position start. Raises
  * Not_found if there are no such substring after position start. *)
-let find_from str sub start =
+let find_from str sub pos =
   let sublen = String.length sub in
-  let sublast = sublen - 1 in
-  let rec loop n m =
+  if sublen = 0 then
+    0
+  else
+    let found = ref pos in
+    let len = String.length str in
     try
-      if str.[n+m] = sub.[m] then
-        if sublast = m then n
-        else loop n (m+1)
-      else loop (n+1) 0
-    with Invalid_argument _ -> raise Not_found in
-  loop start 0
+      for i = pos to len - sublen do
+        let j = ref 0 in
+        while String.unsafe_get str (i + !j) = String.unsafe_get sub !j do
+          incr j;
+          if !j = sublen then begin found := i; raise Exit; end;
+        done;
+      done;
+      raise Not_found
+    with
+      Exit -> !found
 
 let rec njunk stream n =
   if n > 0

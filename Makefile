@@ -1,5 +1,5 @@
 ifndef DUCE
-  DUCE = yes
+  DUCE := $(shell if [ `which ocamlduce` ]; then echo yes; else echo no; fi)
 endif
 
 LIBNAME = textile

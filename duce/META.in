@@ -1,8 +1,0 @@
-
-package "_NAME_" (
-  version = "_VERSION_"
-  description = "_DESCRIPTION_"
-  requires = "_REQUIRES_"
-  archive(byte)="_BYTE_"
-  archive(native)="_NATIVE_"
-)

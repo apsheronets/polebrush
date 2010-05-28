@@ -5,7 +5,7 @@ let bytes = 78
 let path = Sys.argv.(1)
 
 let cmd1 = "../itextile < " ^ path
-let cmd2 = "../duce/itextile_duce < " ^ path
+let cmd2 = "../itextile_duce < " ^ path
 
 let chan1 = open_process_in cmd1
 let chan2 = open_process_in cmd2

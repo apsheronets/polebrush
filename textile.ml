@@ -615,17 +615,6 @@ let of_stream stream =
 
   Stream.from (fun _ -> next_block ())
 
-let list_of_stream stream =
-  let rec loop acc =
-    try
-      let e = Stream.next stream in
-      loop (e::acc)
-    with Stream.Failure -> List.rev acc in
-  loop []
-
-let parse_list l =
-  list_of_stream (of_stream (Stream.of_list l))
-
 let xhtml_of_block ?(escape=true) block =
   let esc s =
     if escape then

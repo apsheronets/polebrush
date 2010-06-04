@@ -116,7 +116,12 @@ uninstall:
 
 doc:
 	-mkdir -p doc
-	$(CAMLDOC) -d doc -html *.mli
+ifeq "$(DUCE)" "yes"
+	$(CAMLDOC) -d doc -html $(FILES:.ml=.mli) $(DUCEFILES:.ml=.mli)
+else
+	$(CAMLDOC) -d doc -html $(FILES:.ml=.mli)
+endif
+
 
 clean:
 	-rm -f *.cm[ioxa] *.o *.a *.cmx[as] *~

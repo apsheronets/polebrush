@@ -130,11 +130,28 @@ type block =
   | Bulllist   of (options * element list)  (** * *)
   | Table      of (tableoptions * row list) (** |t|a|b| *)
 
-(** {2 Functions} *)
+(** {2 Translation} *)
 
 val of_stream : string Stream.t -> block Stream.t
 
-val parse_list : string list -> block list
-
 (** Function will not escape special HTML chars if [escape] is false. Default is true. *)
 val to_xhtml : ?escape:bool -> block Stream.t -> string Stream.t
+
+(** The same, but takes one textile block. *)
+val xhtml_of_block : ?escape:bool -> block -> string
+
+(** Example of use:
+
+{[
+let () =
+  let to_lines path =
+    let chan = open_in path in
+    Stream.from
+      (fun _ ->
+        try Some (input_line chan)
+        with End_of_file -> None) in
+  let lines = to_lines "test.txt" in
+  let textile = Textile.of_stream lines in
+  Stream.iter print_endline (Textile.to_xhtml textile)
+]} *)
+

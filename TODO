@@ -1,3 +1,4 @@
 * Acronyms.
 * Combined declarations of classes and ids like (myclass#myid)
 * Table options in table(...){...}. declaration
+* !imgsrc(hello!)! doesn't work, fix it

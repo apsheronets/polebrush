@@ -418,7 +418,7 @@ let of_stream stream =
         let poststart, url = sub_before_enc str urlstart enc_type in
         let phrase =
           Link (([], parse_string text), title, url) in
-        parse_next str (poststart + k) phrase (start - k - 1)
+        parse_next str poststart phrase (start - k - 1)
       with Not_found -> find_modifier str.[start] (start+1)
     and close_image start enc_type =
       try

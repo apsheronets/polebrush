@@ -1,0 +1,63 @@
+Textile markup language support for OCaml
+========================================
+
+Features :
+----------
+
+* currently it supports most of textile syntax
+* translating textile to an AST
+* translating the AST to XHTML
+* translating the AST to OCamlduce's XHTML (ocsigen support)
+* 'itextile' command which takes textile and returns XHTMl
+* 'itextile_duce' - the same but maked with OCamlduce
+
+Building :
+----------
+
+First you need to get
+* an OCaml compiler >= 3.11 (http://caml.inria.fr/ocaml);
+* GNU Make (http://www.gnu.org/software/make/);
+* findlib which provide ocamlfind command
+  (http://projects.camlcity.org/projects/findlib.html);
+* extlib for OCaml (http://www.cduce.org/ocaml.html)
+
+Optionaly (for OCamlduce support):
+* OCamlduce - modified OCaml compiler (http://www.cduce.org/ocaml.html)
+* ocsigen webserver - only for its libs, so you don't need to
+  launch it (http://ocsigen.org/)
+
+Then run:
+
+$ make
+
+If you need api docs then run:
+
+$ make doc
+
+And watch the doc/ directory.
+
+You can also compile itextile utility:
+
+$ make itextile
+
+And test it:
+
+$ echo 'h1. Hello *world*!' | ./itextile
+<h1>Hello <strong>world</strong>!</h1>
+
+Installation :
+--------------
+
+$ sudo make install
+
+Another branch
+--------------
+
+The previous code looks too imperative and ugly for me, so I've tried
+to rewrite it with functional streams and parsers from camlp5. But it becomes
+tens times slower because Fstream.of_channel and other fstream/fparser things.
+Anyway, you can find this branch here:
+
+* darcs get http://komar.bitcheese.net/darcs/textile-fstream/
+
+I will be happy if you'll help me with that or simply show me a good combinator library.

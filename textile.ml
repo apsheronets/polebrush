@@ -102,15 +102,6 @@ type encasing_char =
   | Blank
   | Brace
 
-let num_of_char c =
-  (int_of_char c) - 48
-
-let str_end str start =
-  String.sub str start ((String.length str) - start)
-
-let substr str s e =
-  String.sub str s (e - s)
-
 (* find_from str sub start returns the character number of the first
  * occurence of string sub in string str after position start. Raises
  * Not_found if there are no such substring after position start. *)
@@ -133,34 +124,36 @@ let find_from str sub pos =
     with
       Exit -> !found
 
-let rec njunk stream n =
-  if n > 0
-  then
-    (Stream.junk stream;
-    njunk stream (n-1))
-  else ()
-
-let rec peekn stream n =
-  let l = Stream.npeek (n+1) stream in
-  try Some (List.nth l n)
-  with Failure _ -> None
-
-(* Returns the substring between pos and the first occurence of
- * substring sub in string s and position in string after that
- * substring.
- * @raise Not_found if sub does not occur in s or received empty
- * substring. *)
-let sub_before s pos sub =
-  let cpos = find_from s sub pos in
-  let res = substr s pos cpos in
-  if (String.length res) = 0 then raise Not_found
-  else (cpos + (String.length sub)), res
-
 let of_stream stream =
 
   let defaultoptions = ([], None, (0, 0)) in
   let defaulttableoptions = (defaultoptions, None) in
   let defaultcelloptions = (Data, None, (None, None)) in
+
+  let num_of_char c =
+    (int_of_char c) - 48 in
+
+  (* Returns the substring between pos and the first occurence of
+     substring sub in string s and position in string after that
+     substring.
+     @raise Not_found if sub does not occur in s or received empty
+     substring. *)
+  let sub_before s pos sub =
+    let cpos = find_from s sub pos in
+    let res = String.slice s ~first:pos ~last:cpos in
+    if (String.length res) = 0 then raise Not_found
+    else (cpos + (String.length sub)), res in
+
+  let rec njunk stream n =
+    if n > 0
+    then
+      (Stream.junk stream;
+      njunk stream (n-1))
+    else () in
+  let rec peekn stream n =
+    let l = Stream.npeek (n+1) stream in
+    try Some (List.nth l n)
+    with Failure _ -> None in
 
   let get_attr str n =
     (* Extracts an attribute which closes by char c *)
@@ -330,13 +323,13 @@ let of_stream stream =
     let sub_before_enc s pos enc_type =
       let k = match enc_type with Brace -> 1 | _ -> 0 in
       let cpos = find_final_enc_from str pos enc_type in
-      let res = substr s pos cpos in
+      let res = String.slice s ~first:pos ~last:cpos in
       if (String.length res) = 0 then raise Not_found
       else cpos + k, res in
     let parse_next str beg phrase pos =
       let postfix =
         parse_string
-          (str_end str beg) in
+          (String.slice str ~first:beg) in
       let tail =
         phrase :: postfix in
       let prefix =
@@ -355,8 +348,8 @@ let of_stream stream =
           let strend = titlestart - 2 in
           if (titlestart = titleend) || (strend < 0)
           then str, None
-          else substr str 0 (strend+1),
-            Some (substr str titlestart (titleend+1))
+          else String.slice str ~last:(strend+1),
+            Some (String.slice str ~first:titlestart ~last:(titleend+1))
         with Invalid_argument _ -> str, None
       else str, None in
     if String.length str = 0 then [] else (* Cut empty phrases *)
@@ -396,11 +389,11 @@ let of_stream stream =
           if is_final_enc str (pos+(String.length cstr)) enc_type then
               let k = match enc_type with Brace -> 1 | _ -> 0 in
               let phrase = constr (attrs,
-                parse_string (substr str start pos)) in
+                parse_string (String.slice str ~first:start ~last:pos)) in
               let postfix =
                 parse_string
-                  (let s = pos + (String.length cstr) + k in
-                  str_end str s) in
+                  (let first = pos + (String.length cstr) + k in
+                  String.slice str ~first) in
               let tail =
                 phrase :: postfix in
               (* Fixes empty strings in lines like ^"_some line_"$ *)
@@ -519,7 +512,7 @@ let of_stream stream =
         (match get_level str 0 with
         | Some n ->
             Stream.junk stream;
-            loop ((n, (parse_string (str_end str (n+1)))) :: acc)
+            loop ((n, (parse_string (String.slice str ~first:(n+1)))) :: acc)
         | None -> List.rev acc)
       | None -> List.rev acc in
     loop [felm] in

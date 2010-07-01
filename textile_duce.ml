@@ -189,7 +189,8 @@ let xhtml_of_block =
     | Paragraph (opts, lines) ->
         {{ <p (po opts)>(parse_lines lines) }}
     | Blockcode (opts, strings) ->
-        {{ <pre (po opts)>[<code (po opts)>(parse_strings strings)] }}
+        {{ <pre ({class="blockcode"} ++ (po opts))>[
+          <code>(parse_strings strings)] }}
     | Pre (opts, strings) ->
         {{ <pre (po opts)>(parse_strings strings) }}
     | Numlist (opts, elements) -> (* FIXME: opts *)

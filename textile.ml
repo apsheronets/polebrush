@@ -746,8 +746,8 @@ let xhtml_of_block ?(escape=true) block =
       sprintf "<p%s>%s</p>" (po opts) (pl lines)
   | Blockcode (opts, strings) ->
       let popts = po opts in
-      sprintf "<pre%s><code%s>%s</code></pre>"
-        popts popts (parse_strings strings)
+      sprintf "<pre class=\"blockcode\"%s><code>%s</code></pre>"
+        popts (parse_strings strings)
   | Pre (opts, strings) ->
       sprintf "<pre%s>%s</pre>"
         (po opts) (parse_strings strings)

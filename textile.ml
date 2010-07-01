@@ -160,7 +160,7 @@ let of_stream stream =
     let extr_attr n c constr =
     (try
       let e = String.index_from str (n+1) c in
-      Some (constr (String.sub str (n+1) (e-n-1)), (e+1))
+      Some (constr (String.slice str ~first:(n+1) ~last:e), (e+1))
     with
      (* If we have an open parenthesis and some happened shit *)
       Not_found | Invalid_argument _ -> None) in
@@ -333,7 +333,7 @@ let of_stream stream =
       let tail =
         phrase :: postfix in
       let prefix =
-        String.sub str 0 pos in
+        String.slice str ~last:pos in
       if String.length prefix = 0
       then tail
       else (CData prefix) :: tail in
@@ -399,7 +399,7 @@ let of_stream stream =
               (* Fixes empty strings in lines like ^"_some line_"$ *)
               if eoll = 0
               then tail
-              else (CData (String.sub str 0 (eoll - k))) :: tail
+              else (CData (String.slice str ~last:(eoll - k))) :: tail
           else loop (pos+1)
         with Not_found -> find_modifier str.[start-1] start in
       loop start
@@ -435,7 +435,7 @@ let of_stream stream =
       try
         match str.[n] with
         | '|' ->
-            let cellstring = String.sub str (start) (n - start) in
+            let cellstring = String.slice str ~first:start ~last:n in
             let cellline = parse_string cellstring in
             Some (List.rev (cellline::acc), str, peeks, (n+1))
         |  _  ->
@@ -445,7 +445,7 @@ let of_stream stream =
         | 0 -> raise Invalid_row
         | n when start = n -> None
         | n ->
-            let cellstring = String.sub str (start) (n - start) in
+            let cellstring = String.slice str ~first:start ~last:n in
             let cellline = parse_string cellstring in
             (match peekn stream peeks with
             | Some nextstr ->
@@ -492,7 +492,7 @@ let of_stream stream =
     | '*' | '#' ->
       (let options, start = get_list_options str 1 in
       let line =
-        parse_string (String.sub str start ((String.length str - start))) in
+        parse_string (String.slice str ~first:start) in
       match str.[0] with
       | '#' -> BNumlist  (options, (1, line))
       | '*' -> BBulllist (options, (1, line))
@@ -576,7 +576,7 @@ let of_stream stream =
             loop (result::acc)
       with Stream.Failure -> List.rev acc in
     let first_line =
-      parsing_func (String.sub fstr start ((String.length fstr) - start)) in
+      parsing_func (String.slice fstr ~first:start) in
     loop [first_line] in
 
   let get_block fstr =

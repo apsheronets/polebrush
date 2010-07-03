@@ -144,12 +144,14 @@ let of_stream stream =
     if (String.length res) = 0 then raise Not_found
     else (cpos + (String.length sub)), res in
 
+  (* junks n elements of the stream *)
   let rec njunk stream n =
     if n > 0
     then
       (Stream.junk stream;
       njunk stream (n-1))
     else () in
+  (* returns n'th element of the stream *)
   let rec peekn stream n =
     let l = Stream.npeek (n+1) stream in
     try Some (List.nth l n)
@@ -160,7 +162,8 @@ let of_stream stream =
     let extr_attr n c constr =
     (try
       let e = String.index_from str (n+1) c in
-      Some (constr (String.slice str ~first:(n+1) ~last:e), (e+1))
+      let s = String.slice str ~first:(n+1) ~last:e in
+      Some (constr s, (e+1))
     with
      (* If we have an open parenthesis and some happened shit *)
       Not_found | Invalid_argument _ -> None) in
@@ -280,7 +283,7 @@ let of_stream stream =
           |  _  -> defaulttableoptions, start)
       |  _  -> defaulttableoptions, start)) in
     loop defaulttableoptions start in
-  (*let get_table_opts str start =
+  let get_table_opts str start =
     let rec loop tableoptions n =
       try
         (match get_tableoption str n tableoptions with
@@ -290,50 +293,48 @@ let of_stream stream =
         | '.' when (n+1) = (String.length str) -> tableoptions
         | _ -> raise Invalid_modifier))
       with Invalid_argument _ -> raise Invalid_modifier in
-    loop defaulttableoptions start in*)
+    loop defaulttableoptions start in
 
   (* Not tail recursive *)
-  let rec parse_string str =
+  let rec to_line str =
     let is_blank = function
       | ' ' | '\t' -> true
       | _ -> false in
-    let is_punct c =
-      try
-        if (c >= '!' && c <= '.') || (c >= ':' && c <= '?') then true
-        else false
-      with Invalid_argument _ -> false in
     let enc_char c =
       if is_blank c then Some Blank
       else if c = '[' then Some Brace
       else None in
-    let rec is_final_enc str n = function
-      | Blank when String.length str <= n -> true
-      | Blank when is_blank str.[n] -> true
-      | Blank when is_punct str.[n] && is_final_enc str (n+1) Blank -> true
-      | Brace when str.[n] = ']' -> true
-      | _ -> false in
-    let find_final_enc_from str start enc_type =
+    let is_punct c =
+      (c >= '!' && c <= '.') || (c >= ':' && c <= '?') in
+    let rec is_final_enc n = function
+      | Blank ->
+          String.length str <= n ||
+          is_blank str.[n] ||
+          (is_punct str.[n] && is_final_enc (n+1) Blank)
+      | Brace -> str.[n] = ']' in
+    let find_final_enc_from start enc_type =
       let rec loop n =
-        if is_final_enc str n enc_type
+        if is_final_enc n enc_type
         then n
         else loop (n+1) in
       try
         loop start
       with Invalid_argument _ -> raise Not_found in
-    let sub_before_enc s pos enc_type =
+    let sub_before_enc pos enc_type =
       let k = match enc_type with Brace -> 1 | _ -> 0 in
-      let cpos = find_final_enc_from str pos enc_type in
-      let res = String.slice s ~first:pos ~last:cpos in
+      let cpos = find_final_enc_from pos enc_type in
+      let res = String.slice str ~first:pos ~last:cpos in
       if (String.length res) = 0 then raise Not_found
       else cpos + k, res in
-    let parse_next str beg phrase pos =
+    let parse_next beg phrase pos =
       let postfix =
-        parse_string
+        to_line
           (String.slice str ~first:beg) in
       let tail =
         phrase :: postfix in
       let prefix =
         String.slice str ~last:pos in
+      (* cut empty phrases *)
       if String.length prefix = 0
       then tail
       else (CData prefix) :: tail in
@@ -352,9 +353,36 @@ let of_stream stream =
             Some (String.slice str ~first:titlestart ~last:(titleend+1))
         with Invalid_argument _ -> str, None
       else str, None in
-    if String.length str = 0 then [] else (* Cut empty phrases *)
+    (* Cut empty phrases *)
+    if String.length str = 0 then [] else
     let rec find_modifier prev_char n =
       try
+        let start = n + 1 in
+        let close_link enc_type =
+          try
+            let k = match enc_type with Brace -> 1 | _ -> 0 in
+            let urlstart, text_and_title = sub_before str start "\":" in
+            let text, title = get_title text_and_title in
+            let poststart, url = sub_before_enc urlstart enc_type in
+            let phrase =
+              Link (([], to_line text), title, url) in
+            parse_next poststart phrase (start - k - 1)
+          with Not_found -> find_modifier str.[start] (start+1) in
+        let close_image enc_type =
+          try
+            let k = match enc_type with Brace -> 1 | _ -> 0 in
+            let pos, src_and_alt = sub_before str start "!" in
+            let src, alt = get_title (src_and_alt) in
+            let phrase, poststart =
+              if is_final_enc pos enc_type then
+                Image ([], src, alt), pos
+              else if str.[pos] = ':' then
+                let poststart, url = sub_before_enc (pos+1) enc_type in
+                Link (([], [Image ([], src, alt)]), None, url),
+                  poststart
+              else raise Not_found in
+            parse_next (poststart + k) phrase (start - k - 1)
+          with Not_found -> find_modifier str.[start] (start+1) in
         let f n t =
           let cm = close_modifier n t in
           match str.[n], str.[n+1] with
@@ -369,8 +397,8 @@ let of_stream stream =
           | '~',  _  -> cm (n+1) "~"  (fun x -> Subscript x)
           | '%',  _  -> cm (n+1) "%"  (fun x -> Span x)
           | '@',  _  -> cm (n+1) "@"  (fun x -> Code x)
-          | '!',  _  -> close_image (n+1) t
-          | '"',  _  -> close_link  (n+1) t
+          | '!',  _  -> close_image t
+          | '"',  _  -> close_link  t
           | _ -> find_modifier str.[n] (n+1) in
         match enc_char prev_char with
         | Some t -> f n t
@@ -381,17 +409,18 @@ let of_stream stream =
                     (* End of last lexeme position
                      * vvvv *)
     and close_modifier eoll enc_type start cstr constr =
-      if str.[start] = ' ' then find_modifier ' ' (start+1) else
+      (* oops, blank space *)
+      if is_blank str.[start] then find_modifier str.[start] (start+1) else
       let attrs, start = get_phrase_attrs str start in
       let rec loop n =
         try
           let pos = find_from str cstr n in
-          if is_final_enc str (pos+(String.length cstr)) enc_type then
+          if is_final_enc (pos+(String.length cstr)) enc_type then
               let k = match enc_type with Brace -> 1 | _ -> 0 in
               let phrase = constr (attrs,
-                parse_string (String.slice str ~first:start ~last:pos)) in
+                to_line (String.slice str ~first:start ~last:pos)) in
               let postfix =
-                parse_string
+                to_line
                   (let first = pos + (String.length cstr) + k in
                   String.slice str ~first) in
               let tail =
@@ -402,32 +431,7 @@ let of_stream stream =
               else (CData (String.slice str ~last:(eoll - k))) :: tail
           else loop (pos+1)
         with Not_found -> find_modifier str.[start-1] start in
-      loop start
-    and close_link start enc_type =
-      try
-        let k = match enc_type with Brace -> 1 | _ -> 0 in
-        let urlstart, text_and_title = sub_before str start "\":" in
-        let text, title = get_title text_and_title in
-        let poststart, url = sub_before_enc str urlstart enc_type in
-        let phrase =
-          Link (([], parse_string text), title, url) in
-        parse_next str poststart phrase (start - k - 1)
-      with Not_found -> find_modifier str.[start] (start+1)
-    and close_image start enc_type =
-      try
-        let k = match enc_type with Brace -> 1 | _ -> 0 in
-        let pos, src_and_alt = sub_before str start "!" in
-        let src, alt = get_title (src_and_alt) in
-        let phrase, poststart =
-          if is_final_enc str pos enc_type then
-            Image ([], src, alt), pos
-          else if str.[pos] = ':' then
-            let poststart, url = sub_before_enc str (pos+1) enc_type in
-            Link (([], [Image ([], src, alt)]), None, url),
-              poststart
-          else raise Not_found in
-        parse_next str (poststart + k) phrase (start - k - 1)
-      with Not_found -> find_modifier str.[start] (start+1) in
+      loop start in
     find_modifier ' ' 0 in
 
   let get_celllines str peeks start =
@@ -436,7 +440,7 @@ let of_stream stream =
         match str.[n] with
         | '|' ->
             let cellstring = String.slice str ~first:start ~last:n in
-            let cellline = parse_string cellstring in
+            let cellline = to_line cellstring in
             Some (List.rev (cellline::acc), str, peeks, (n+1))
         |  _  ->
             loop str acc peeks start (n+1)
@@ -446,7 +450,7 @@ let of_stream stream =
         | n when start = n -> None
         | n ->
             let cellstring = String.slice str ~first:start ~last:n in
-            let cellline = parse_string cellstring in
+            let cellline = to_line cellstring in
             (match peekn stream peeks with
             | Some nextstr ->
                 loop nextstr (cellline::acc) (peeks+1) 0 0
@@ -492,7 +496,7 @@ let of_stream stream =
     | '*' | '#' ->
       (let options, start = get_list_options str 1 in
       let line =
-        parse_string (String.slice str ~first:start) in
+        to_line (String.slice str ~first:start) in
       match str.[0] with
       | '#' -> BNumlist  (options, (1, line))
       | '*' -> BBulllist (options, (1, line))
@@ -512,7 +516,7 @@ let of_stream stream =
         (match get_level str 0 with
         | Some n ->
             Stream.junk stream;
-            loop ((n, (parse_string (String.slice str ~first:(n+1)))) :: acc)
+            loop ((n, (to_line (String.slice str ~first:(n+1)))) :: acc)
         | None -> List.rev acc)
       | None -> List.rev acc in
     loop [felm] in
@@ -523,25 +527,21 @@ let of_stream stream =
       options, (is_ext, start) in
     try
       Some (match fstr.[0], fstr.[1], fstr.[2] with
-        (* Headers  *)
         | 'h', c,  _
           when (c >= '0') && (c <= '6') ->
             BHeader ((num_of_char c), options 2)
         | 'b','q', _  ->
             BBlockquote (options 2)
-        | 'f','n', c  ->
-            (* It just works
-             * I don't know how *)
-            let check x = (x >= 0) && (x <= 9) in
-            let rec loop acc n =
-              let num = num_of_char fstr.[n] in
-              if check num
-              then loop ((acc*10)+num) (n+1)
-              else
-                BFootnote (acc, options n) in
-            let num = num_of_char fstr.[2] in
-            if check num
-            then loop num 3
+        | 'f','n', _  ->
+            let rec loop n =
+              if fstr.[n] >= '0' && fstr.[n] <= '9'
+              then loop (n+1)
+              else n in
+            if fstr.[2] >= '0' && fstr.[2] <= '9'
+            then
+              let n = loop 3 in
+              let i = int_of_string (String.slice fstr ~first:2 ~last:n) in
+              BFootnote (i, options n)
             else raise Invalid_modifier
         | 'b','c', _  ->
             BBlockcode (options 2)
@@ -550,11 +550,22 @@ let of_stream stream =
         | 'p', _,  _  ->
             BParagraph (options 1)
         | _ ->
-            (try BTable (defaulttableoptions, get_row 0 fstr)
+            (try if String.starts_with fstr "table"
+            then begin
+              let topts = get_table_opts fstr 5 in
+              match Stream.peek stream with
+              | None -> raise Invalid_modifier
+              | Some s ->
+                  let frow = get_row 0 s in
+                  Stream.junk stream;
+                  BTable (topts, frow)
+            end else raise Invalid_modifier
+            with Invalid_row | Invalid_modifier ->
+            try BTable (defaulttableoptions, get_row 0 fstr)
             with Invalid_row | Invalid_modifier ->
             get_list_modifier fstr))
     with
-      | Invalid_argument _ (* ff our string is too short *)
+      | Invalid_argument _ (* too short *)
       | Invalid_modifier -> None in
 
   let get_func parsing_func fstr is_ext start =
@@ -583,7 +594,7 @@ let of_stream stream =
     match get_block_modifier fstr with
     | Some (block_modifier) ->
         let get_lines (is_ext, start) =
-          get_func parse_string fstr is_ext start in
+          get_func to_line fstr is_ext start in
         let get_strings (is_ext, start) =
           get_func (fun x -> x) fstr is_ext start in
         (match block_modifier with
@@ -597,7 +608,7 @@ let of_stream stream =
         | BBulllist  (o, e) -> Bulllist     (o, get_elements '*' e)
         | BTable (topts, frow) -> Table (topts, get_rows frow))
     | None ->
-        Paragraph (([], None, (0,0)), get_func parse_string fstr false 0) in
+        Paragraph (([], None, (0,0)), get_func to_line fstr false 0) in
 
   let rec next_block () =
     try
@@ -673,7 +684,7 @@ let xhtml_of_block ?(escape=true) block =
   let parse_lines lines =
     String.concat "<br />" (List.map parse_line lines) in
 
-  let parse_strings strings=
+  let to_lines strings=
     String.concat "\n" (List.map esc strings) in
 
   let parse_talign = function
@@ -747,10 +758,10 @@ let xhtml_of_block ?(escape=true) block =
   | Blockcode (opts, strings) ->
       let popts = po opts in
       sprintf "<pre class=\"blockcode\"%s><code>%s</code></pre>"
-        popts (parse_strings strings)
+        popts (to_lines strings)
   | Pre (opts, strings) ->
       sprintf "<pre%s>%s</pre>"
-        (po opts) (parse_strings strings)
+        (po opts) (to_lines strings)
   | Numlist (opts, elements) -> (* FIXME: opts *)
       sprintf "<ol>%s</ol>" (parse_list elements)
   | Bulllist (opts, elements) ->

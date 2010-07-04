@@ -775,3 +775,30 @@ let to_xhtml ?(escape=true) stream =
       Some (xhtml_of_block ~escape (Stream.next stream))
     with Stream.Failure -> None in
   Stream.from next
+
+let rec string_of_line line =
+  let buf = Buffer.create 512 in
+  let add = Buffer.add_string buf in
+  let rec loop = function
+    | h::t -> (match h with
+        | CData s -> add s
+        | Emphasis    (_, l)
+        | Strong      (_, l)
+        | Italic      (_, l)
+        | Bold        (_, l)
+        | Citation    (_, l)
+        | Deleted     (_, l)
+        | Inserted    (_, l)
+        | Superscript (_, l)
+        | Subscript   (_, l)
+        | Span        (_, l)
+        | Code        (_, l) ->
+            add (string_of_line l)
+        | Acronym (a, _) ->
+            add a
+        | Image _ -> ()
+        | Link ((_, l), _, _) ->
+            add (string_of_line l));
+        loop t
+    | [] -> Buffer.contents buf in
+  loop line

@@ -155,3 +155,6 @@ let () =
   Stream.iter print_endline (Textile.to_xhtml textile)
 ]} *)
 
+(** Translates the line to a simple string which can be used, for example,
+in HTML's <title> tag. All markup will be removed. *)
+val string_of_line: line -> string

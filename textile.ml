@@ -408,7 +408,7 @@ let of_stream stream =
                     (* End of last lexeme position
                      * vvvv *)
     and close_modifier eoll brace start cstr constr =
-      (* oops, false space *)
+      (* oops, blank space *)
       if is_blank str.[start] then find_modifier str.[start] (start+1) else
       let attrs, start = get_phrase_attrs str start in
       let rec loop n =

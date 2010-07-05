@@ -356,10 +356,10 @@ let of_stream stream =
     let rec find_modifier prev_char n =
       let start = n + 1 in
       let close_link brace =
-        let attrs, start = get_phrase_attrs str start in
+        let attrs, textstart = get_phrase_attrs str start in
         let k = if brace then 1 else 0 in
         try
-          let urlstart, text_and_title = sub_before str start "\":" in
+          let urlstart, text_and_title = sub_before str textstart "\":" in
           let text, title = get_title text_and_title in
           let poststart, url = sub_before_enc urlstart brace in
           let phrase =
@@ -367,10 +367,10 @@ let of_stream stream =
           parse_next poststart phrase (start - k - 1)
         with Not_found -> find_modifier str.[start] (start+1) in
       let close_image brace =
-        let attrs, start = get_phrase_attrs str start in
+        let attrs, srcstart = get_phrase_attrs str start in
         let k = if brace then 1 else 0 in
         try
-          let pos, src_and_alt = sub_before str start "!" in
+          let pos, src_and_alt = sub_before str srcstart "!" in
           let src, alt = get_title (src_and_alt) in
           let phrase, poststart =
             if is_final_enc pos brace then

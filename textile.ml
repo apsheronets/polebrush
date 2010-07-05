@@ -155,21 +155,22 @@ let of_stream stream =
 
   let get_attr str n =
     (* Extracts an attribute which closes by char c *)
-    let extr_attr n c constr =
-    (try
-      let e = String.index_from str (n+1) c in
-      let s = String.slice str ~first:(n+1) ~last:e in
-      Some (constr s, (e+1))
-    with
-     (* If we have an open parenthesis and some happened shit *)
-      Not_found | Invalid_argument _ -> None) in
+    let extr_attr ?(blanks=true) n c constr =
+      try
+        let e = String.index_from str (n+1) c in
+        let s = String.slice str ~first:(n+1) ~last:e in
+        if not blanks && String.contains str ' '
+        then None
+        else Some (constr s, (e+1))
+      with (* If we have an open parenthesis and some happened shit *)
+        Not_found | Invalid_argument _ -> None in
     match str.[n] with
     (* Style *)
     | '{' -> extr_attr n '}' (fun x -> Style x)
     (* This may be a class, an id or left padding *)
     | '(' -> (match str.[n+1] with
         | '#' -> extr_attr (n+1) ')' (fun x -> Id x)
-        |  _  -> extr_attr n ')' (fun x -> Class x))
+        |  _  -> extr_attr ~blanks:false n ')' (fun x -> Class x))
     (* Language *)
     | '[' -> extr_attr n ']' (fun x -> Language x)
     |  _ -> None in
@@ -296,12 +297,12 @@ let of_stream stream =
     let is_blank = function
       | ' ' | '\t' -> true
       | _ -> false in
-    let enc_char c =
-      if is_blank c then Some false
-      else if c = '[' then Some true
-      else None in
     let is_punct c =
       (c >= '!' && c <= '.') || (c >= ':' && c <= '?') in
+    let enc_char c =
+      if is_blank c || is_punct c then Some false
+      else if c = '[' then Some true
+      else None in
     let rec is_final_enc n brace =
       if brace then
         str.[n] = ']'

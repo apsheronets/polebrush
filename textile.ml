@@ -356,55 +356,56 @@ let of_stream stream =
     (* Cut empty phrases *)
     if String.length str = 0 then [] else
     let rec find_modifier prev_char n =
+      let start = n + 1 in
+      let close_link enc_type =
+        try
+          let k = match enc_type with Brace -> 1 | _ -> 0 in
+          let urlstart, text_and_title = sub_before str start "\":" in
+          let text, title = get_title text_and_title in
+          let poststart, url = sub_before_enc urlstart enc_type in
+          let phrase =
+            Link (([], to_line text), title, url) in
+          parse_next poststart phrase (start - k - 1)
+        with Not_found -> find_modifier str.[start] (start+1) in
+      let close_image enc_type =
+        let attrs, start = get_phrase_attrs str start in
+        try
+          let k = match enc_type with Brace -> 1 | _ -> 0 in
+          let pos, src_and_alt = sub_before str start "!" in
+          let src, alt = get_title (src_and_alt) in
+          let phrase, poststart =
+            if is_final_enc pos enc_type then
+              Image (attrs, src, alt), pos
+            else if str.[pos] = ':' then
+              let poststart, url = sub_before_enc (pos+1) enc_type in
+              Link (([], [Image (attrs, src, alt)]), None, url),
+                poststart
+            else raise Not_found in
+          parse_next (poststart + k) phrase (start - k - 1)
+        with Not_found -> find_modifier str.[start] (start+1) in
+      let f n t =
+        let cm = close_modifier n t in
+        match str.[n], str.[n+1] with
+        | '_', '_' -> cm (n+2) "__" (fun x -> Italic x)
+        | '_',  _  -> cm (n+1) "_"  (fun x -> Emphasis x)
+        | '*', '*' -> cm (n+2) "**" (fun x -> Bold x)
+        | '*',  _  -> cm (n+1) "*"  (fun x -> Strong x)
+        | '?', '?' -> cm (n+2) "??" (fun x -> Citation x)
+        | '-',  _  -> cm (n+1) "-"  (fun x -> Deleted x)
+        | '+',  _  -> cm (n+1) "+"  (fun x -> Inserted x)
+        | '^',  _  -> cm (n+1) "^"  (fun x -> Superscript x)
+        | '~',  _  -> cm (n+1) "~"  (fun x -> Subscript x)
+        | '%',  _  -> cm (n+1) "%"  (fun x -> Span x)
+        | '@',  _  -> cm (n+1) "@"  (fun x -> Code x)
+        | '!',  _  -> close_image t
+        | '"',  _  -> close_link  t
+        | _ -> find_modifier str.[n] (n+1) in
       try
-        let start = n + 1 in
-        let close_link enc_type =
-          try
-            let k = match enc_type with Brace -> 1 | _ -> 0 in
-            let urlstart, text_and_title = sub_before str start "\":" in
-            let text, title = get_title text_and_title in
-            let poststart, url = sub_before_enc urlstart enc_type in
-            let phrase =
-              Link (([], to_line text), title, url) in
-            parse_next poststart phrase (start - k - 1)
-          with Not_found -> find_modifier str.[start] (start+1) in
-        let close_image enc_type =
-          try
-            let k = match enc_type with Brace -> 1 | _ -> 0 in
-            let pos, src_and_alt = sub_before str start "!" in
-            let src, alt = get_title (src_and_alt) in
-            let phrase, poststart =
-              if is_final_enc pos enc_type then
-                Image ([], src, alt), pos
-              else if str.[pos] = ':' then
-                let poststart, url = sub_before_enc (pos+1) enc_type in
-                Link (([], [Image ([], src, alt)]), None, url),
-                  poststart
-              else raise Not_found in
-            parse_next (poststart + k) phrase (start - k - 1)
-          with Not_found -> find_modifier str.[start] (start+1) in
-        let f n t =
-          let cm = close_modifier n t in
-          match str.[n], str.[n+1] with
-          | '_', '_' -> cm (n+2) "__" (fun x -> Italic x)
-          | '_',  _  -> cm (n+1) "_"  (fun x -> Emphasis x)
-          | '*', '*' -> cm (n+2) "**" (fun x -> Bold x)
-          | '*',  _  -> cm (n+1) "*"  (fun x -> Strong x)
-          | '?', '?' -> cm (n+2) "??" (fun x -> Citation x)
-          | '-',  _  -> cm (n+1) "-"  (fun x -> Deleted x)
-          | '+',  _  -> cm (n+1) "+"  (fun x -> Inserted x)
-          | '^',  _  -> cm (n+1) "^"  (fun x -> Superscript x)
-          | '~',  _  -> cm (n+1) "~"  (fun x -> Subscript x)
-          | '%',  _  -> cm (n+1) "%"  (fun x -> Span x)
-          | '@',  _  -> cm (n+1) "@"  (fun x -> Code x)
-          | '!',  _  -> close_image t
-          | '"',  _  -> close_link  t
-          | _ -> find_modifier str.[n] (n+1) in
         match enc_char prev_char with
         | Some t -> f n t
         | None -> find_modifier str.[n] (n+1)
       (* If we have passed whole string without any modifier
-       * then we simply pack it in CData *)
+         then we simply pack it in CData *)
       with Invalid_argument _ -> [CData str]
                     (* End of last lexeme position
                      * vvvv *)
@@ -416,19 +417,19 @@ let of_stream stream =
         try
           let pos = find_from str cstr n in
           if is_final_enc (pos+(String.length cstr)) enc_type then
-              let k = match enc_type with Brace -> 1 | _ -> 0 in
-              let phrase = constr (attrs,
-                to_line (String.slice str ~first:start ~last:pos)) in
-              let postfix =
-                to_line
-                  (let first = pos + (String.length cstr) + k in
-                  String.slice str ~first) in
-              let tail =
-                phrase :: postfix in
-              (* Fixes empty strings in lines like ^"_some line_"$ *)
-              if eoll = 0
-              then tail
-              else (CData (String.slice str ~last:(eoll - k))) :: tail
+            let k = match enc_type with Brace -> 1 | _ -> 0 in
+            let phrase = constr (attrs,
+              to_line (String.slice str ~first:start ~last:pos)) in
+            let postfix =
+              to_line
+                (let first = pos + (String.length cstr) + k in
+                String.slice str ~first) in
+            let tail =
+              phrase :: postfix in
+            (* Fixes empty strings in lines like ^"_some line_"$ *)
+            if eoll = 0
+            then tail
+            else (CData (String.slice str ~last:(eoll - k))) :: tail
           else loop (pos+1)
         with Not_found -> find_modifier str.[start-1] start in
       loop start in

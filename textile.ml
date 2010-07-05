@@ -98,10 +98,6 @@ type block_modifier =
   | BBulllist   of (options * element)
   | BTable      of (tableoptions * row)
 
-type encasing_char =
-  | Blank
-  | Brace
-
 (* find_from str sub start returns the character number of the first
  * occurence of string sub in string str after position start. Raises
  * Not_found if there are no such substring after position start. *)
@@ -301,28 +297,29 @@ let of_stream stream =
       | ' ' | '\t' -> true
       | _ -> false in
     let enc_char c =
-      if is_blank c then Some Blank
-      else if c = '[' then Some Brace
+      if is_blank c then Some false
+      else if c = '[' then Some true
       else None in
     let is_punct c =
       (c >= '!' && c <= '.') || (c >= ':' && c <= '?') in
-    let rec is_final_enc n = function
-      | Blank ->
-          String.length str <= n ||
-          is_blank str.[n] ||
-          (is_punct str.[n] && is_final_enc (n+1) Blank)
-      | Brace -> str.[n] = ']' in
-    let find_final_enc_from start enc_type =
+    let rec is_final_enc n brace =
+      if brace then
+        str.[n] = ']'
+      else
+        String.length str <= n ||
+        is_blank str.[n] ||
+        (is_punct str.[n] && is_final_enc (n+1) false) in
+    let find_final_enc_from start brace =
       let rec loop n =
-        if is_final_enc n enc_type
+        if is_final_enc n brace
         then n
         else loop (n+1) in
       try
         loop start
       with Invalid_argument _ -> raise Not_found in
-    let sub_before_enc pos enc_type =
-      let k = match enc_type with Brace -> 1 | _ -> 0 in
-      let cpos = find_final_enc_from pos enc_type in
+    let sub_before_enc pos brace =
+      let k = if brace then 1 else 0 in
+      let cpos = find_final_enc_from pos brace in
       let res = String.slice str ~first:pos ~last:cpos in
       if (String.length res) = 0 then raise Not_found
       else cpos + k, res in
@@ -357,27 +354,28 @@ let of_stream stream =
     if String.length str = 0 then [] else
     let rec find_modifier prev_char n =
       let start = n + 1 in
-      let close_link enc_type =
+      let close_link brace =
+        let attrs, start = get_phrase_attrs str start in
+        let k = if brace then 1 else 0 in
         try
-          let k = match enc_type with Brace -> 1 | _ -> 0 in
           let urlstart, text_and_title = sub_before str start "\":" in
           let text, title = get_title text_and_title in
-          let poststart, url = sub_before_enc urlstart enc_type in
+          let poststart, url = sub_before_enc urlstart brace in
           let phrase =
-            Link (([], to_line text), title, url) in
+            Link ((attrs, to_line text), title, url) in
           parse_next poststart phrase (start - k - 1)
         with Not_found -> find_modifier str.[start] (start+1) in
-      let close_image enc_type =
+      let close_image brace =
         let attrs, start = get_phrase_attrs str start in
+        let k = if brace then 1 else 0 in
         try
-          let k = match enc_type with Brace -> 1 | _ -> 0 in
           let pos, src_and_alt = sub_before str start "!" in
           let src, alt = get_title (src_and_alt) in
           let phrase, poststart =
-            if is_final_enc pos enc_type then
+            if is_final_enc pos brace then
               Image (attrs, src, alt), pos
             else if str.[pos] = ':' then
-              let poststart, url = sub_before_enc (pos+1) enc_type in
+              let poststart, url = sub_before_enc (pos+1) brace in
               Link (([], [Image (attrs, src, alt)]), None, url),
                 poststart
             else raise Not_found in
@@ -409,15 +407,15 @@ let of_stream stream =
       with Invalid_argument _ -> [CData str]
                     (* End of last lexeme position
                      * vvvv *)
-    and close_modifier eoll enc_type start cstr constr =
-      (* oops, blank space *)
+    and close_modifier eoll brace start cstr constr =
+      (* oops, false space *)
       if is_blank str.[start] then find_modifier str.[start] (start+1) else
       let attrs, start = get_phrase_attrs str start in
       let rec loop n =
         try
           let pos = find_from str cstr n in
-          if is_final_enc (pos+(String.length cstr)) enc_type then
-            let k = match enc_type with Brace -> 1 | _ -> 0 in
+          if is_final_enc (pos+(String.length cstr)) brace then
+            let k = if brace then 1 else 0 in
             let phrase = constr (attrs,
               to_line (String.slice str ~first:start ~last:pos)) in
             let postfix =

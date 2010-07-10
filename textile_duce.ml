@@ -15,6 +15,7 @@
  *
  * Copyright 2010 Alexander Markov *)
 
+open Printf
 open Textile
 open Xhtmltypes_duce
 
@@ -36,10 +37,10 @@ exception Invalid_textile of string
 let xhtml_of_block =
 
   let parse_attr = function
-    | Class str    -> {{ { class={:str:} } }}
-    | Id str       -> {{ { id={:str:}    } }}
-    | Style str    -> {{ { style={:str:} } }}
-    | Language str -> {{ { lang={:str:} }  }} in
+    | Class str    -> {{ { class=(utf str) } }}
+    | Id str       -> {{ { id=(utf str)    } }}
+    | Style str    -> {{ { style=(utf str) } }}
+    | Language str -> {{ { lang=(utf str)  } }} in
 
   let parse_attrs =
     List.fold_left
@@ -69,7 +70,7 @@ let xhtml_of_block =
         let alt = match alt with
         | Some s -> {{ {alt=(utf s)} }}
         | None -> {{ {alt=""} }} in
-        {{ [ <img ((pa a) ++ {src={:src:}} ++ alt)>[] ] }}
+        {{ [ <img ((pa a) ++ {src=(utf src)} ++ alt)>[] ] }}
     | Link _        -> raise (Invalid_textile "unexpected link")
 
   and parse_phrase = function
@@ -77,7 +78,7 @@ let xhtml_of_block =
         let title = (match title with
           | Some s -> {{ {title=(utf s)} }}
           | None -> {{ {} }}) in
-        {{ [ <a ((pa attrs) ++ title ++ {href={:url:}})>
+        {{ [ <a ((pa attrs) ++ title ++ {href=(utf url)})>
           (parse_line_without_links l) ] }}
     | x -> parse_phrase_without_links x
 
@@ -118,12 +119,12 @@ let xhtml_of_block =
   let parse_padding = function
     | 0, 0 -> {{ {} }}
     | l, 0 ->
-        {{ { style={:"padding-left:"^(string_of_int l)^"em":} } }}
+        {{ { style={:sprintf "padding-left:%uem" l:} } }}
     | 0, r ->
-        {{ { style={:"padding-right:"^(string_of_int r)^"em":} } }}
+        {{ { style={:sprintf "padding-right:%uem" r:} } }}
     | l, r ->
-        {{ { style={:"padding-left:"^(string_of_int l)^
-          "em;padding-right:"^(string_of_int r)^"em":} } }} in
+        {{ { style={:sprintf
+          "padding-left:%uem;padding-right:%uem" l r:} } }} in
 
   let parse_options (attrs, talign, padding) =
     {{ (parse_attrs attrs)

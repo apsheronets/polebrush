@@ -78,12 +78,12 @@ $(HTML).cmxa: $(HTML).cmx
 $(HTML).cmxs: $(HTML).cmx
 	$(CAMLOPT) -a -o $@ $^
 
-$(DUCEF).cmo:
-	$(DUCEC) -c $(DUCEF).ml
-$(DUCEF).cmi:
-	$(DUCEC) -c $(DUCEF).mli
+$(DUCEF).cmo: $(DUCEF).ml
+	$(DUCEC) -c $<
+$(DUCEF).cmi: $(DUCEF).mli
+	$(DUCEC) -c $<
 $(DUCEF).cmx: $(DUCEF).ml
-	$(DUCEOPT) -c $(DUCEF).ml
+	$(DUCEOPT) -c $<
 
 $(DUCEF).cma:  $(DUCEF).cmo
 	$(DUCEC) -a -o $@ $^
@@ -97,10 +97,10 @@ itextile.cmx: native itextile.ml
 itextile: native itextile.cmx
 	$(CAMLOPT) -I ./ -package textile,textile.html -linkpkg -o $@ itextile.cmx
 
-xhtmlpretty_duce.cmi:
-	$(DUCEC) -c xhtmlpretty_duce.mli
-xhtmlpretty_duce.cmx:
-	$(DUCEOPT) -c xhtmlpretty_duce.ml
+xhtmlpretty_duce.cmi: xhtmlpretty_duce.mli
+	$(DUCEC) -c $<
+xhtmlpretty_duce.cmx: xhtmlpretty_duce.ml
+	$(DUCEOPT) -c $<
 itextile_duce.cmx: native itextile_duce.ml xhtmlpretty_duce.cmx
 	$(DUCEOPT) -I ./ -package textile.duce -c itextile_duce.ml
 itextile_duce: xhtmlpretty_duce.cmx itextile_duce.cmx

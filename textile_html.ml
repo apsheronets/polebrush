@@ -99,11 +99,11 @@ let of_block ?(escape=true) block =
   let parse_padding = function
     | 0, 0 -> ""
     | l, 0 ->
-        sprintf " style=\"padding-left:%dem\"" l
+        sprintf " style=\"padding-left:%uem\"" l
     | 0, r ->
-        sprintf " style=\"padding-right:%dem\"" r
+        sprintf " style=\"padding-right:%uem\"" r
     | l, r ->
-        sprintf " style=\"padding-left:%dem; padding-right:%dem\"" l r in
+        sprintf " style=\"padding-left:%uem; padding-right:%uem\"" l r in
 
   let parse_options (attrs, talign, padding) =
     String.concat "" [parse_attrs attrs;

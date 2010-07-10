@@ -15,13 +15,26 @@
  *
  * Copyright 2010 Alexander Markov *)
 
-let text = Stream.from (fun _ -> try Some (read_line ())
-  with End_of_file -> None)
+(** Facilities for converting textile into html *)
 
-let textile = Textile.of_stream text
+(** Function will not escape special HTML chars if [escape] is false. Default is true. *)
+val of_stream : ?escape:bool -> Textile.block Stream.t -> string Stream.t
 
-let xhtml = Textile_html.of_stream textile
+(** The same, but takes one textile block. *)
+val of_block : ?escape:bool -> Textile.block -> string
 
-let _ =
-  Stream.iter (print_string) xhtml;
-  exit 0
+(** Example of use:
+
+{[
+let () =
+  let to_lines path =
+    let chan = open_in path in
+    Stream.from
+      (fun _ ->
+        try Some (input_line chan)
+        with End_of_file -> None) in
+  let lines = to_lines "test.txt" in
+  let textile = Textile.of_stream lines in
+  Stream.iter print_endline (Textile_html.of_block textile)
+]} *)
+

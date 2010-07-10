@@ -15,7 +15,7 @@
  *
  * Copyright 2010 Alexander Markov *)
 
-(** addition for [Textile]: ocamlduce XHTML support for ocsigen *)
+(** Facilities for converting textile into ocsigen's [Xhtmltypes_duce] representation *)
 
 (** Raises only when function receives invalid AST, for example, with [Header 10]. *)
 exception Invalid_textile of string

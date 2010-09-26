@@ -83,7 +83,7 @@ type phrase =
 type line =
   phrase list
 
-(** One element of a list. It's an line an number and depth of element,
+(** One element of a list. It's a line and depth of element,
 or just count of asterisk or sharps. *)
 type element =
   int * line

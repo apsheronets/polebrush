@@ -48,19 +48,19 @@ endif
 
 META: META.in META.duce.in VERSION
 	cp META.in META
-	sed "s/_NAME_/$(LIBNAME)/" -i META
-	sed "s/_VERSION_/$(VERSION)/" -i META
-	sed "s/_REQUIRES_/$(PACKAGES)/" -i META
-	sed "s/_BYTE_/$(CMA)/" -i META
-	sed "s/_NATIVE_/$(CMXA)/" -i META
-	sed "s/_SHARED_/$(CMXS)/" -i META
+	sed "s/_NAME_/$(LIBNAME)/" -i'' META
+	sed "s/_VERSION_/$(VERSION)/" -i'' META
+	sed "s/_REQUIRES_/$(PACKAGES)/" -i'' META
+	sed "s/_BYTE_/$(CMA)/" -i'' META
+	sed "s/_NATIVE_/$(CMXA)/" -i'' META
+	sed "s/_SHARED_/$(CMXS)/" -i'' META
 ifeq "$(DUCE)" "yes"
 	cp META.duce.in META.duce
-	sed "s/_NAME_/duce/" -i META.duce
-	sed "s/_REQUIRES_/$(DUCEPACKAGES)/" -i META.duce
-	sed "s/_BYTE_/$(DUCECMA)/" -i META.duce
-	sed "s/_NATIVE_/$(DUCECMXA)/" -i META.duce
-	sed "s/_SHARED_/$(DUCECMXS)/" -i META.duce
+	sed "s/_NAME_/duce/" -i'' META.duce
+	sed "s/_REQUIRES_/$(DUCEPACKAGES)/" -i'' META.duce
+	sed "s/_BYTE_/$(DUCECMA)/" -i'' META.duce
+	sed "s/_NATIVE_/$(DUCECMXA)/" -i'' META.duce
+	sed "s/_SHARED_/$(DUCECMXS)/" -i'' META.duce
 	cat META.duce >> META
 endif
 

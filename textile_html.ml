@@ -20,18 +20,17 @@ open Textile
 
 let of_block ?(escape=true) block =
   let esc s =
-    if escape then
-      let strlen = String.length s in
-      let buf = Buffer.create strlen in
-      let f = function
-        | '&' -> Buffer.add_string buf "&amp;"
-        | '<' -> Buffer.add_string buf "&lt;"
-        | '>' -> Buffer.add_string buf "&gt;"
-        | '"' -> Buffer.add_string buf "&quot;"
-        |  c  -> Buffer.add_char buf c in
-      String.iter f s;
-      Buffer.contents buf
-    else s in
+    let strlen = String.length s in
+    let buf = Buffer.create strlen in
+    let f = function
+      | '&' -> Buffer.add_string buf "&amp;"
+      | '<' -> Buffer.add_string buf "&lt;"
+      | '>' -> Buffer.add_string buf "&gt;"
+      | '"' -> Buffer.add_string buf "&quot;"
+      |  c  -> Buffer.add_char buf c in
+    String.iter f s;
+    Buffer.contents buf in
+  let esc_cdata = if escape then esc else (fun s -> s) in
 
   let parse_attr = function
     | Class s    -> sprintf "class=\"%s\"" (esc s)
@@ -52,7 +51,7 @@ let of_block ?(escape=true) block =
   let rec parse_phrase =
     let p = sprintf in
     let pl = parse_line in function
-    | CData str -> (esc str)
+    | CData str -> (esc_cdata str)
     | Strong      (a,l) -> p "<strong%s>%s</strong>" (pa a) (pl l)
     | Italic      (a,l) -> p "<i%s>%s</i>" (pa a) (pl l)
     | Bold        (a,l) -> p "<b%s>%s</b>" (pa a) (pl l)
@@ -65,7 +64,7 @@ let of_block ?(escape=true) block =
     | Span        (a,l) -> p "<span%s>%s</span>" (pa a) (pl l)
     | Code        (a,l) -> p "<code%s>%s</code>" (pa a) (pl l)
     | Acronym (a, b) ->
-        p "<acronym title=\"%s\">%s</acronym>" (esc b) (esc a)
+        p "<acronym title=\"%s\">%s</acronym>" (esc b) (esc_cdata a)
     | Image (a, src, alt) ->
         (let alt = match alt with
         | Some s -> p "alt=\"%s\"" (esc s)
@@ -83,7 +82,7 @@ let of_block ?(escape=true) block =
   let parse_lines lines =
     String.concat "<br />" (List.map parse_line lines) in
 
-  let to_lines strings=
+  let to_lines strings =
     String.concat "\n" (List.map esc strings) in
 
   let parse_talign = function

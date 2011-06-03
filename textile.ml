@@ -23,6 +23,9 @@ type attr =
   | Id       of string (* p(#myid). *)
   | Style    of string (* p{color:red}. *)
   | Language of string (* p[fr-fr]. *)
+type img_float =
+  | Float_left
+  | Float_right
 type phrase =
   | CData       of string
   | Emphasis    of (attr list * phrase list) (* _ *)
@@ -37,7 +40,8 @@ type phrase =
   | Span        of (attr list * phrase list) (* % *)
   | Code        of (attr list * phrase list) (* @ *)
   | Acronym of string * string               (* ABC(Always Be Closing *)
-  | Image of attr list * string * string option (* !imgsrc(alt)! *)
+  | Image of attr list * img_float option
+      * string * string option (* !imgsrc(alt)! *)
   | Link of (attr list * phrase list) *
       string option * string (* "linktext(title)":url *)
 type line =
@@ -77,67 +81,22 @@ type block =
   | Paragraph  of (options * line list)     (** p. *)
   | Blockcode  of (options * string list)   (** bc. *)
   | Pre        of (options * string list)   (** pre. *)
+  (* FIXME: why options? *)
   | Numlist    of (options * element list)  (** # *)
   | Bulllist   of (options * element list)  (** * *)
   | Table      of (tableoptions * row list) (** |t|a|b| *)
 
-(* There are internal exceptions. They must be even catched
- * inside the module *)
-exception Invalid_modifier
-exception Invalid_attribute
-exception Invalid_row
+let (>>) f g = g f
 
-type block_modifier =
-  | BHeader     of int * (options * (bool * int))
-  | BBlockquote of (options * (bool * int))
-  | BFootnote   of int * (options * (bool * int))
-  | BParagraph  of (options * (bool * int))
-  | BBlockcode  of (options * (bool * int))
-  | BPre        of (options * (bool * int))
-  | BNumlist    of (options * element)
-  | BBulllist   of (options * element)
-  | BTable      of (tableoptions * row)
-
-(* find_from str sub start returns the character number of the first
- * occurence of string sub in string str after position start. Raises
- * Not_found if there are no such substring after position start. *)
-let find_from str sub pos =
-  let sublen = String.length sub in
-  if sublen = 0 then
-    0
-  else
-    let found = ref pos in
-    let len = String.length str in
-    try
-      for i = pos to len - sublen do
-        let j = ref 0 in
-        while String.unsafe_get str (i + !j) = String.unsafe_get sub !j do
-          incr j;
-          if !j = sublen then begin found := i; raise Exit; end;
-        done;
-      done;
-      raise Not_found
-    with
-      Exit -> !found
+open Parsercomb
 
 let of_stream stream =
-  let defaultoptions = ([], None, (0, 0)) in
-  let defaulttableoptions = (defaultoptions, None) in
-  let defaultcelloptions = (Data, None, (None, None)) in
+  let default_options = ([], None, (0, 0)) in
+  let default_tableoptions = (default_options, None) in
+  let default_celloptions = (Data, None, (None, None)) in
 
   let num_of_char c =
     (int_of_char c) - 48 in
-
-  (* Returns the substring between pos and the first occurence of
-     substring sub in string s and position in string after that
-     substring.
-     @raise Not_found if sub does not occur in s or received empty
-     substring. *)
-  let sub_before s pos sub =
-    let cpos = find_from s sub pos in
-    let res = String.slice s ~first:pos ~last:cpos in
-    if (String.length res) = 0 then raise Not_found
-    else (cpos + (String.length sub)), res in
 
   (* junks n elements of the stream *)
   let rec njunk stream n =
@@ -146,468 +105,576 @@ let of_stream stream =
       (Stream.junk stream;
       njunk stream (n-1))
     else () in
-  (* returns n'th element of the stream *)
+  (* returns n'th element of the stream (from zero) *)
   let rec peekn stream n =
     let l = Stream.npeek (n+1) stream in
     try Some (List.nth l n)
-    with Failure _ -> None in
+    with Failure _ | ExtList.List.Invalid_index _ -> (* ExtLib, goddamn *)
+      None in
 
-  let get_attr str n =
-    (* Extracts an attribute which closes by char c *)
-    let extr_attr ?(blanks=true) n c constr =
-      try
-        let e = String.index_from str (n+1) c in
-        let s = String.slice str ~first:(n+1) ~last:e in
-        if not blanks && String.contains str ' '
-        then None
-        else Some (constr s, (e+1))
-      with (* If we have an open parenthesis and some happened shit *)
-        Not_found | Invalid_argument _ -> None in
-    match str.[n] with
-    (* Style *)
-    | '{' -> extr_attr n '}' (fun x -> Style x)
-    (* This may be a class, an id or left padding *)
-    | '(' -> (match str.[n+1] with
-        | '#' -> extr_attr (n+1) ')' (fun x -> Id x)
-        |  _  -> extr_attr ~blanks:false n ')' (fun x -> Class x))
-    (* Language *)
-    | '[' -> extr_attr n ']' (fun x -> Language x)
-    |  _ -> None in
-  let get_padding str n (lpad, rpad) =
-    match str.[n] with
-    | ')' -> Some ((lpad, rpad+1), n+1)
-    | '(' -> Some ((lpad+1, rpad), n+1)
-    |  _  -> None in
-  let get_talign str n talign =
-    match str.[n], talign with
-    | '<', None -> (match str.[n+1] with
-        | '>' -> Some (Justify, n+2)
-        |  _  -> Some (Left, n+1))
-    | '>', None -> Some (Right, n+1)
-    | '=', None -> Some (Center, n+1)
-    |  _ -> None in
-  let get_celltype str n celltype =
-    match str.[n], celltype with
-    | '_', Data -> Some (Head, n+1)
-    | _ -> None in
-  let get_valign str n valign =
-    match str.[n], valign with
-    | '^', None -> Some (Top,    n+1)
-    | '-', None -> Some (Middle, n+1)
-    | '~', None -> Some (Bottom, n+1)
-    | _ -> None in
-  let get_option str n (attrs, talign, ((lp, rp) as padding)) =
-    (match get_attr str n with
-    | Some (attr, n) -> Some (((attr::attrs), talign, padding), n)
-    | None ->
-    (match get_padding str n padding with
-    | Some ((l, r), n) -> Some ((attrs, talign, (lp+l, rp+r)), n)
-    | None ->
-    (match get_talign str n talign with
-    | Some (talign, n) -> Some ((attrs, (Some talign), padding), n)
-    | None -> None))) in
+  let p_string_not_empty = function "" -> fail | s -> return s in
 
-  let get_tableoption str n (options, valign) =
-    (match get_option str n options with
-    | Some (options, n) -> Some ((options, valign), n)
-    | None ->
-    (match get_valign str n valign with
-    | Some (valign, n) -> Some ((options, (Some valign)), n)
-    | None -> None)) in
+  let whitespace = function ' ' | '\t' -> true | _ -> false in
+  let punct = function
+    | '!' | '"' | '$' | '%' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | '-' | '.' | ':' | ';' | '<' | '=' | '>' | '?' -> true | _ -> false in
+    (*(c >= '!' && c < '#') || (c > '#' && c <= '.') || (c >= ':' && c <= '?') in*)
+  let p_whitespace = p_pred whitespace in
+  let p_not_whitespace = p_pred (fun c -> not (whitespace c)) in
+  let p_punct = p_pred punct in
 
-  let get_phrase_attrs str start =
-    let rec loop acc n =
-      try
-        match get_attr str n with
-        | Some (attr, n) -> loop (attr::acc) n
-        | None -> acc, n
-      with Invalid_argument _ -> [], start
-    in loop [] start in
-  let get_block_opts str start =
-    let rec loop options n =
-      try
-        (match get_option str n options with
-        | Some (options, n) -> loop options n
-        | None ->
-        (match str.[n] with
-        | '.' -> (match str.[n+1] with
-            | ' ' -> false, options, n+2
-            | '.' -> (match str.[n+2] with
-                | ' ' -> true, options, n+3
-                |  _  -> raise Invalid_modifier)
-            |  _  -> raise Invalid_modifier)
-        |  _  -> raise Invalid_modifier))
-      with Invalid_argument _ -> raise Invalid_modifier in
-    loop ([], None, (0,0)) start in
-  let get_list_options str start =
-    let rec loop options n =
-      try
-        (match get_option str n options with
-        | Some (options, n) -> loop options n
-        | None ->
-        (match str.[n] with
-        | ' ' -> options, n+1
-        |  _  -> raise Invalid_modifier))
-      with Invalid_argument _ -> raise Invalid_modifier in
-    loop ([], None, (0,0)) start in
+  (* checks previous char; doesn't jump *)
+  let check_prev p (s, pos) =
+    let prev_pos = pos - 1 in
+    (p >>= fun r -> fun _ -> Parsed (r, (s, pos))) (s, prev_pos) in
 
-  let get_cell_opts str start =
-    let rec loop (celltype, valign, cellspan) n =
-      try
-        (match get_celltype str n celltype with
-        | Some (celltype, n) -> loop (celltype, valign, cellspan) n
-        | None ->
-        (match get_valign str n valign with
-        | Some (valign, n) ->
-            loop (celltype, Some valign, cellspan) n
-        | None ->
-        (match str.[n] with
-        | '.' -> (match str.[n+1] with
-            | ' ' -> (celltype, valign, cellspan), (n+2)
-            |  _  -> defaultcelloptions, start)
-        |  _  -> defaultcelloptions, start)))
-      with Invalid_argument _ -> defaultcelloptions, start in
-    loop defaultcelloptions start in
-  let get_row_options str start =
-    let rec loop tableoptions n =
-      (match get_tableoption str n tableoptions with
-      | Some (tableoptions, n) -> loop tableoptions n
-      | None ->
-      (match str.[n] with
-      | '.' -> (match str.[n+1] with
-          | ' ' -> tableoptions, (n+2)
-          |  _  -> defaulttableoptions, start)
-      |  _  -> defaulttableoptions, start)) in
-    loop defaulttableoptions start in
-  let get_table_opts str start =
-    let rec loop tableoptions n =
-      try
-        (match get_tableoption str n tableoptions with
-        | Some (tableoptions, n) -> loop tableoptions n
-        | None ->
-        (match str.[n] with
-        | '.' when (n+1) = (String.length str) -> tableoptions
-        | _ -> raise Invalid_modifier))
-      with Invalid_argument _ -> raise Invalid_modifier in
-    loop defaulttableoptions start in
+  (* checks current char; doesn't jump *)
+  let check_current p (s, pos) =
+    (p >>= fun r -> fun _ -> Parsed (r, (s, pos))) (s, pos) in
 
-  (* Not tail recursive *)
-  let rec to_line str =
-    let is_blank = function
-      | ' ' | '\t' -> true
-      | _ -> false in
-    let is_punct c =
-      (c >= '!' && c <= '.') || (c >= ':' && c <= '?') in
-    let enc_char c =
-      if is_blank c || is_punct c then Some false
-      else if c = '[' then Some true
-      else None in
-    let rec is_final_enc n brace =
-      if brace then
-        str.[n] = ']'
-      else
-        String.length str <= n ||
-        is_blank str.[n] ||
-        (is_punct str.[n] && is_final_enc (n+1) false) in
-    let find_final_enc_from start brace =
-      let rec loop n =
-        if is_final_enc n brace
-        then n
-        else loop (n+1) in
-      try
-        loop start
-      with Invalid_argument _ -> raise Not_found in
-    let sub_before_enc pos brace =
-      let k = if brace then 1 else 0 in
-      let cpos = find_final_enc_from pos brace in
-      let res = String.slice str ~first:pos ~last:cpos in
-      if (String.length res) = 0 then raise Not_found
-      else cpos + k, res in
-    let parse_next beg phrase pos =
-      let postfix =
-        to_line
-          (String.slice str ~first:beg) in
-      let tail =
-        phrase :: postfix in
-      let prefix =
-        String.slice str ~last:pos in
-      (* cut empty phrases *)
-      if String.length prefix = 0
-      then tail
-      else (CData prefix) :: tail in
-    let get_title str =
-      let last = (String.length str) - 1 in
-      if str.[last] = ')' then
-        try
-          let titleend = last - 1 in
-          let rec find_back str c n =
-            if str.[n] = c then n else find_back str c (n-1) in
-          let titlestart = (find_back str '(' (last-1)) + 1 in
-          let strend = titlestart - 2 in
-          if (titlestart = titleend) || (strend < 0)
-          then str, None
-          else String.slice str ~last:(strend+1),
-            Some (String.slice str ~first:titlestart ~last:(titleend+1))
-        with Invalid_argument _ -> str, None
-      else str, None in
-    (* Cut empty phrases *)
-    if String.length str = 0 then [] else
-    let rec find_modifier prev_char n =
-      let start = n + 1 in
-      let close_link brace =
-        let attrs, textstart = get_phrase_attrs str start in
-        let k = if brace then 1 else 0 in
-        try
-          let urlstart, text_and_title = sub_before str textstart "\":" in
-          let text, title = get_title text_and_title in
-          let poststart, url = sub_before_enc urlstart brace in
-          let phrase =
-            Link ((attrs, to_line text), title, url) in
-          parse_next poststart phrase (start - k - 1)
-        with Not_found -> find_modifier str.[start] (start+1) in
-      let close_image brace =
-        let attrs, srcstart = get_phrase_attrs str start in
-        let k = if brace then 1 else 0 in
-        try
-          let pos, src_and_alt = sub_before str srcstart "!" in
-          let src, alt = get_title (src_and_alt) in
-          let phrase, poststart =
-            if is_final_enc pos brace then
-              Image (attrs, src, alt), pos
-            else if str.[pos] = ':' then
-              let poststart, url = sub_before_enc (pos+1) brace in
-              Link (([], [Image (attrs, src, alt)]), None, url),
-                poststart
-            else raise Not_found in
-          parse_next (poststart + k) phrase (start - k - 1)
-        with Not_found -> find_modifier str.[start] (start+1) in
-      let f n t =
-        let cm = close_modifier n t in
-        match str.[n], str.[n+1] with
-        | '_', '_' -> cm (n+2) "__" (fun x -> Italic x)
-        | '_',  _  -> cm (n+1) "_"  (fun x -> Emphasis x)
-        | '*', '*' -> cm (n+2) "**" (fun x -> Bold x)
-        | '*',  _  -> cm (n+1) "*"  (fun x -> Strong x)
-        | '?', '?' -> cm (n+2) "??" (fun x -> Citation x)
-        | '-',  _  -> cm (n+1) "-"  (fun x -> Deleted x)
-        | '+',  _  -> cm (n+1) "+"  (fun x -> Inserted x)
-        | '^',  _  -> cm (n+1) "^"  (fun x -> Superscript x)
-        | '~',  _  -> cm (n+1) "~"  (fun x -> Subscript x)
-        | '%',  _  -> cm (n+1) "%"  (fun x -> Span x)
-        | '@',  _  -> cm (n+1) "@"  (fun x -> Code x)
-        | '!',  _  -> close_image t
-        | '"',  _  -> close_link  t
-        | _ -> find_modifier str.[n] (n+1) in
-      try
-        match enc_char prev_char with
-        | Some t -> f n t
-        | None -> find_modifier str.[n] (n+1)
-      (* If we have passed whole string without any modifier
-         then we simply pack it in CData *)
-      with Invalid_argument _ -> [CData str]
-                    (* End of last lexeme position
-                     * vvvv *)
-    and close_modifier eoll brace start cstr constr =
-      (* oops, blank space *)
-      if is_blank str.[start] then find_modifier str.[start] (start+1) else
-      let attrs, start = get_phrase_attrs str start in
-      let rec loop n =
-        try
-          let pos = find_from str cstr n in
-          if is_final_enc (pos+(String.length cstr)) brace then
-            let k = if brace then 1 else 0 in
-            let phrase = constr (attrs,
-              to_line (String.slice str ~first:start ~last:pos)) in
-            let postfix =
-              to_line
-                (let first = pos + (String.length cstr) + k in
-                String.slice str ~first) in
-            let tail =
-              phrase :: postfix in
-            (* Fixes empty strings in lines like ^"_some line_"$ *)
-            if eoll = 0
-            then tail
-            else (CData (String.slice str ~last:(eoll - k))) :: tail
-          else loop (pos+1)
-        with Not_found -> find_modifier str.[start-1] start in
-      loop start in
-    find_modifier ' ' 0 in
+  let p_class =
+    (* ((())) must be for padding, not for class (( or something else *)
+    p_char '(' >>>
+    p_until_ps (p_pred ((<>) '(')) (p_char ')') >>= fun (classname, _) ->
+    p_string_not_empty classname in
+  let id       = p_str "(#" >>> p_all_until_ps (p_char ')') >>= p_string_not_empty in
+  let style    = p_char '{' >>> p_all_until_ps (p_char '}') >>= p_string_not_empty in
+  let language = p_char '[' >>> p_all_until_ps (p_char ']') >>= p_string_not_empty in
 
-  let get_celllines str peeks start =
-    let rec loop str acc peeks start n =
-      try
-        match str.[n] with
-        | '|' ->
-            let cellstring = String.slice str ~first:start ~last:n in
-            let cellline = to_line cellstring in
-            Some (List.rev (cellline::acc), str, peeks, (n+1))
-        |  _  ->
-            loop str acc peeks start (n+1)
-      with Invalid_argument _ ->
-        (match n with
-        | 0 -> raise Invalid_row
-        | n when start = n -> None
-        | n ->
-            let cellstring = String.slice str ~first:start ~last:n in
-            let cellline = to_line cellstring in
-            (match peekn stream peeks with
-            | Some nextstr ->
-                loop nextstr (cellline::acc) (peeks+1) 0 0
-            | None -> raise Invalid_row)) in
-    loop str [] peeks start start in
-  let get_row peeks str =
-    if String.length str > 0
-    then
-      let toptions, start =
-        get_row_options str 0 in
-      let rec move n =
-        try
-          (match str.[n] with
-          | '|' ->
-              (let rec loop str acc peeks start =
-                let celloptions, start =
-                  get_cell_opts str start in
-                (match get_celllines str peeks start with
-                | Some (celllines, str, peeks, start) ->
-                    loop str ((celloptions, celllines)::acc) peeks start
-                | None ->
-                    njunk stream peeks;
-                    (toptions, List.rev acc)) in
-              loop str [] peeks (start+1))
-          | ' ' | '\t' -> move (n+1)
-          | _ -> raise Invalid_row)
-        with Invalid_argument _ -> raise Invalid_row in
-      move start
-    else raise Invalid_row in
-  let get_rows frow =
-    let rec loop acc =
-      match Stream.peek stream with
-      | Some str ->
-          (try
-            let row = get_row 1 str in
-            loop (row::acc)
-          with Invalid_row -> List.rev acc)
-      | None -> List.rev acc in
-    loop [frow] in
+  let attr =
+    (id       >>= fun s -> return (Id s))    ||| (* must be first *)
+    (p_class  >>= fun s -> return (Class s)) |||
+    (style    >>= fun s -> return (Style s)) |||
+    (language >>= fun s -> return (Language s)) in
 
-  let get_list_modifier str =
-    match str.[0] with
-    | '*' | '#' ->
-      (let options, start = get_list_options str 1 in
-      let line =
-        to_line (String.slice str ~first:start) in
-      match str.[0] with
-      | '#' -> BNumlist  (options, (1, line))
-      | '*' -> BBulllist (options, (1, line))
-      | _ -> raise Invalid_modifier)
-    | _ -> raise Invalid_modifier in
-  let get_elements c felm =
-    let rec get_level str n =
-      try
-        (match str.[n] with
-        | ch  when ch = c -> get_level str (n+1)
-        | ' ' when n > 0  -> Some n
-        |  _  -> None)
-      with Invalid_argument _ -> None in
-    let rec loop acc =
-      match Stream.peek stream with
-      | Some str ->
-        (match get_level str 0 with
-        | Some n ->
-            Stream.junk stream;
-            loop ((n, (to_line (String.slice str ~first:(n+1)))) :: acc)
-        | None -> List.rev acc)
-      | None -> List.rev acc in
-    loop [felm] in
+  let attrs =
+    p_manyf attr (fun acc x -> x::acc) [] in
 
-  let get_block_modifier fstr =
-    let options start =
-      let is_ext, options, start = get_block_opts fstr start in
-      options, (is_ext, start) in
-    try
-      Some (match fstr.[0], fstr.[1], fstr.[2] with
-        | 'h', c,  _
-          when (c >= '0') && (c <= '6') ->
-            BHeader ((num_of_char c), options 2)
-        | 'b','q', _  ->
-            BBlockquote (options 2)
-        | 'f','n', _  ->
-            let rec loop n =
-              if fstr.[n] >= '0' && fstr.[n] <= '9'
-              then loop (n+1)
-              else n in
-            if fstr.[2] >= '0' && fstr.[2] <= '9'
+  let img_float =
+    (p_char '<' >>> return Float_left)  |||
+    (p_char '>' >>> return Float_right) in
+
+  (* attributes + floating *)
+  let img_opts =
+    let add_opt (attrs, float_opt) = function
+      | `Attr a -> (a::attrs, float_opt)
+      | `Img_float f -> (attrs, Some f) in
+    p_manyf
+      ((attr >>= fun a -> return (`Attr a)) ||| (img_float >>= fun f -> return (`Img_float f)))
+      add_opt
+      ([], None) in
+
+  (* matches typical beginning of phrase: beginning of line or whitespace *)
+  let begin_of_phrase begin_of_line follow =
+    (* why so unobvious solution? We can write it in that way:
+     * begin_of_phrase begin_of_line =
+     *   p_pos begin_of_line ||| p_whitespace || p_punct
+     * but it willn't parse strings like (@code@) because it will detect
+     * the begin of line, then found '(' which is not a modifier and all
+     * parser fails. *)
+    (p_pos begin_of_line >>> follow) |||
+    (
+      ((p_whitespace) |||
+      (p_pred (function '(' | '\'' | '"' -> true | _ -> false))) >>> follow
+    ) in
+
+  (* matches typical end of phrase: end of line, whitespace, punctuation
+   * doesn't jump *)
+  let end_of_phrase =
+    dont_jump
+      (p_end |||
+        (p_whitespace >>> return ()) |||
+        (p_many p_punct >>> (p_end ||| (p_whitespace >>> return ())))) in
+
+  (* The Great Function which collects CData and more interesting
+   * phrases into line *)
+  (* it fails if [until] not reached *)
+  let collect_phrases_with phrase until (s, begin_of_line) =
+    let rec loop acc beg (s, pos) =
+      let go_on () = loop acc beg (s, succ pos) in
+      match phrase (s, pos) with
+      | Parsed ((phrase_r, last_cdata_pos), (s, next_p)) ->
+          let acc_values =
+            (* do we have some cdata to save which was
+             * before we found a phrase? *)
+            if last_cdata_pos <= beg
             then
-              let n = loop 3 in
-              let i = int_of_string (String.slice fstr ~first:2 ~last:n) in
-              BFootnote (i, options n)
-            else raise Invalid_modifier
-        | 'b','c', _  ->
-            BBlockcode (options 2)
-        | 'p','r','e' ->
-            BPre (options 3)
-        | 'p', _,  _  ->
-            BParagraph (options 1)
-        | _ ->
-            (try if String.starts_with fstr "table"
-            then begin
-              let topts = get_table_opts fstr 5 in
-              match Stream.peek stream with
-              | None -> raise Invalid_modifier
-              | Some s ->
-                  let frow = get_row 0 s in
-                  Stream.junk stream;
-                  BTable (topts, frow)
-            end else raise Invalid_modifier
-            with Invalid_row | Invalid_modifier ->
-            try BTable (defaulttableoptions, get_row 0 fstr)
-            with Invalid_row | Invalid_modifier ->
-            get_list_modifier fstr))
-    with
-      | Invalid_argument _ (* too short *)
-      | Invalid_modifier -> None in
+              [phrase_r]
+            else
+              let prev_cdata =
+                CData (String.slice ~first:beg ~last:last_cdata_pos s) in
+              [prev_cdata; phrase_r] in
+          loop (List.rev_append acc_values acc) next_p (s, next_p)
+      | Failed  ->
+          (match until (s, pos) with
+          | Parsed (until_r, (s, new_pos)) ->
+              if pos = begin_of_line
+              then go_on ()
+              else
+                let acc =
+                  (* do we have some cdata to save which was
+                   * before we found a termination combinator? *)
+                  if beg = pos
+                  then acc
+                  else
+                    let last_cdata =
+                      CData (String.slice ~first:beg ~last:pos s) in
+                    last_cdata::acc in
+                  Parsed ((List.rev acc, until_r), (s, new_pos))
+          | Failed ->
+              if pos >= String.length s
+              then
+                (* we have passed the whole string
+                 * and haven't catch a termination combinator *)
+                Failed
+              else go_on ()) in
+    loop [] begin_of_line (s, begin_of_line) in
 
-  let get_func parsing_func fstr is_ext start =
+  (* parsed all phrases except [CData] *)
+  let rec phrase ?(end_of_phrase=end_of_phrase) beg_of_line =
+
+    (* Hyprlinks can't contain another hyperlinks.
+     * Therefore, there are two functions for parsing phrases —
+     * one without hyperlinks... *)
+    let rec phrases_except_hyperlinks last_cdata_pos end_of_phrase =
+      (* opened modifier should not be before whitespace *)
+      let opened_modifier m =
+        m >>= fun r -> check_current p_not_whitespace >>> return r in
+      (* and closed modifier also should not be after whitespace *)
+      let closed_modifier m =
+        check_prev p_not_whitespace >>> m in
+      (* this is for correct parsing strings like _(hi)_ *)
+      (* FIXME *)
+      let try_attrs f =
+        (attrs >>= fun a -> (f a)) |||
+        (f []) in
+      (* there are general definition of simple phrases *)
+      let sp modifier =
+        opened_modifier modifier >>= fun (f, cm) ->
+        try_attrs (fun a ->
+        (*check_current p_not_whitespace >>>*)
+        current_pos >>= fun beg_of_line ->
+        (* FIXME *)
+        let p_c = (closed_modifier cm >>> end_of_phrase) in
+        collect_phrases_with
+          (phrase ~end_of_phrase:(
+              end_of_phrase ||| (dont_jump p_c >>> return ()))
+            beg_of_line)
+          p_c >>= fun (line, _) ->
+        return (f (a, line), last_cdata_pos)) in
+      (* remember that __ and ** must be first than _ and * *)
+      (* simple_phrase (p_str "__") (fun x -> Italic      x) |||
+         simple_phrase (p_char '_') (fun x -> Emphasis    x) |||
+         simple_phrase (p_str "**") (fun x -> Bold        x) |||
+         simple_phrase (p_char '*') (fun x -> Strong      x) |||
+         simple_phrase (p_str "??") (fun x -> Citation    x) |||
+         simple_phrase (p_char '-') (fun x -> Deleted     x) |||
+         simple_phrase (p_char '+') (fun x -> Inserted    x) |||
+         simple_phrase (p_char '^') (fun x -> Superscript x) |||
+         simple_phrase (p_char '~') (fun x -> Subscript   x) |||
+         simple_phrase (p_char '%') (fun x -> Span        x) |||
+         simple_phrase (p_char '@') (fun x -> Code        x) |||*)
+      sp (p_str "__" >>> return ((fun x -> Italic      x), p_str "__")) |||
+      sp (p_str "**" >>> return ((fun x -> Bold        x), p_str "**")) |||
+      sp (p_pred2 (function
+        | '_' -> Some (((fun x -> Emphasis    x), p_char '_'))
+        | '*' -> Some (((fun x -> Strong      x), p_char '*'))
+        | '-' -> Some (((fun x -> Deleted     x), p_char '-'))
+        | '+' -> Some (((fun x -> Inserted    x), p_char '+'))
+        | '^' -> Some (((fun x -> Superscript x), p_char '^'))
+        | '~' -> Some (((fun x -> Subscript   x), p_char '~'))
+        | '%' -> Some (((fun x -> Span        x), p_char '%'))
+        | '@' -> Some (((fun x -> Code        x), p_char '@'))
+        | _ -> None)) |||
+      sp (p_str "??" >>> return ((fun x -> Citation    x), p_str "??")) |||
+      (* and there are not too simple phrases *)
+      (* image *)
+      (
+        (* ...:http://komar.bitcheese.net *)
+        let link_opt =
+          (p_char ':' >>>
+            p_until_ps (p_not_whitespace) end_of_phrase >>= fun (url, _) ->
+            return (Some url)) |||
+          (end_of_phrase >>> return None) in
+        (* ...(title)! *)
+        let end_with_title =
+          p_char '(' >>>
+          p_all_until_ps (p_str ")!") >>= fun title ->
+          link_opt >>= fun link_opt ->
+          return (title, link_opt) in
+        (* ...! *)
+        let end_with_no_title =
+          p_char '!' >>>
+          link_opt in
+
+        p_char '!' >>>
+        img_opts >>= fun (attrs, float) ->
+        p_until_ps p_not_whitespace (
+          (end_with_title >>= fun (title, link_opt) -> return (Some title, link_opt)) |||
+          (end_with_no_title >>= fun link_opt -> return (None, link_opt))
+        ) >>= fun (src, (title_opt, link_opt)) ->
+
+        let r =
+          let image = Image (attrs, float, src, title_opt) in
+          match link_opt with
+          | Some url -> Link (([], [image]), None, url)
+          | None -> image in
+        return (r, last_cdata_pos)
+      )
+    (* ... and one with them. *)
+    and phrases last_cdata_pos end_of_phrase =
+      (phrases_except_hyperlinks last_cdata_pos end_of_phrase) |||
+      (* hyperlink *)
+      (
+        (* ...:http://komar.bitcheese.net *)
+        let url =
+          p_char ':' >>>
+          p_until_ps (p_not_whitespace) end_of_phrase >>= fun (url, _) -> return url in
+        (* ...(title)'' *)
+        let end_with_title =
+          p_char '(' >>>
+          p_all_until_ps (p_str ")\"") >>= fun title ->
+          url >>= fun url ->
+          return (title, url) in
+        (* ...'' *)
+        let end_with_no_title =
+          p_char '"' >>> url in
+
+        p_char '"' >>>
+        (* XXX: hm *)
+        check_current p_not_whitespace >>>
+        attrs >>= fun a ->
+        current_pos >>= fun beg_of_line ->
+        collect_phrases_with (phrases_except_hyperlinks beg_of_line end_of_phrase) (
+          (end_with_title >>= fun (title, url) -> return (Some title, url)) |||
+          (end_with_no_title >>= fun url -> return (None, url))
+        ) >>= fun (line, (title_opt, url)) ->
+
+        let r = Link ((a, line), title_opt, url) in
+        return (r, last_cdata_pos)
+      ) in
+
+    (* general definition of phrase *)
+    (
+      (* phrases are usually surrounded with whitespaces, punctuation,
+       * begining/ending of line —
+       * every case described in begin_of_phrase *)
+      (
+        begin_of_phrase beg_of_line (
+          current_pos >>= fun last_cdata_pos ->
+          phrases last_cdata_pos end_of_phrase)
+      )
+      |||
+      (* but phrases can also be surrounded with square brackets *)
+      (
+        (* XXX: this makes code about 4x faster *)
+        (*current_pos >>= fun last_cdata_pos ->
+        p_char '[' >>>
+        phrases last_cdata_pos (p_char ']' >>> return ())*)
+        p_char '[' >>>
+        current_pos >>= fun _pos ->
+        phrases (_pos-1) (p_char ']' >>> return ())
+      )
+    ) in
+
+  let line (s, pos) =
+    (collect_phrases_with (phrase pos) p_end >>= fun (line, _) ->
+    return line) (s, pos) in
+
+  let align =
+    (p_str "<>" >>> return Justify) ||| (* must be first *)
+    (p_char '<' >>> return Left)    |||
+    (p_char '=' >>> return Center)  |||
+    (p_char '>' >>> return Right) in
+
+  let option =
+    (attr  >>= fun x -> return (`Attr x))  |||
+    (align >>= fun x -> return (`Align x)) |||
+    (p_char '(' >>> return `Left_padding)  |||
+    (p_char ')' >>> return `Right_padding) in
+
+  (* should we fix it? *)
+  let add_option (attrs, talign, (lp, rp)) = function
+    | `Attr a -> (a::attrs, talign, (lp, rp))
+      (* may be we need to add warning or something else
+       * when align is already set *)
+    | `Align a -> (attrs, Some a, (lp, rp))
+    | `Left_padding -> (attrs, talign, (succ lp, rp))
+    | `Right_padding -> (attrs, talign, (lp, succ rp)) in
+
+  let options =
+    p_manyf option add_option default_options in
+
+  let valign =
+    (p_char '^' >>> return Top   ) |||
+    (p_char '-' >>> return Middle) |||
+    (p_char '~' >>> return Bottom) in
+
+  let tableoption =
+    (option >>= fun x -> return (`Option x)) |||
+    (valign >>= fun x -> return (`Valign x)) in
+  let add_tableoption (opts, valign) = function
+    | `Valign x -> (opts, Some x)
+    | `Option x -> (add_option opts x, valign) in
+  let tableoptions =
+    p_manyf tableoption add_tableoption default_tableoptions in
+  let tableoptions_plus =
+    p_plusf tableoption add_tableoption default_tableoptions in
+
+  let block_type =
+    (p_char 'h' >>>
+      p_pred (fun c -> c >= '1' && c <= '6') >>= fun c ->
+      return (`Textblock (`Header (num_of_char c)))) |||
+    (p_str "bq" >>> return (`Textblock `Blockquote)) |||
+    (p_str "fn" >>> p_unsign_int >>= fun i ->
+      return (`Textblock (`Footnote i))) |||
+    (p_str "bc"  >>> return (`Textblock `Blockcode)) |||
+    (p_str "pre" >>> return (`Textblock `Pre)) |||
+    (p_char 'p'  >>> return (`Textblock `Paragraph)) |||
+    (p_str "table" >>> return `Table) in
+
+  let block_modifier =
+    p_many p_whitespace >>> (* skip whitespaces *)
+    block_type >>= function
+    | `Table ->
+        tableoptions >>= fun topts ->
+        p_opt () (p_char '.' >>> return ()) >>>
+        p_many p_whitespace >>>
+        p_end >>>
+        return (`Table topts)
+    | `Textblock bm ->
+        options >>= fun opts ->
+        p_char '.' >>>
+        ((p_char '.' >>> return true) ||| (return false)) >>= fun extended ->
+        p_char ' ' >>>
+        (* FIXME *)
+        (*line >>= fun line ->*)
+        (*dont_jump p_somechar >>>*)
+        return (`Textblock (bm, opts, extended)) in
+
+  (*let get_content parse_first parse empty is_ext =
+    let rec loop acc (s, pos) =
+      try
+        let str = Stream.next stream in
+        (
+          (parse >>= fun r ->
+          loop (r::acc)) |||
+          (if is_ext
+          then
+            (match Stream.peek stream with
+            | Some next_str ->
+                (* wtf am i writing *)
+                (fun _ ->
+                  ((block_modifier >>> return (List.rev acc)) |||
+                  (loop (empty::acc))) (next_str, 0))
+            | None -> return (List.rev acc))
+          else return (List.rev acc))
+        ) (str, 0)
+      with Stream.Failure -> (return (List.rev acc)) (s, pos) in
+    parse_first >>= fun first ->
+    loop [first] in*)
+
+  let get_content parse_first parse empty extended (s, pos) =
     let rec loop acc =
       try
         let str = Stream.next stream in
-        match str, is_ext with
-        | "", false -> List.rev acc
-        | "", true -> (match Stream.peek stream with
+        (match parse (str, 0) with
+        | Parsed (r, _) -> loop (r::acc)
+        | Failed when extended ->
+            (match Stream.peek stream with
             | Some next_str ->
-                (match get_block_modifier next_str with
-                | Some _ -> List.rev acc
-                | None   ->
-                    let result = parsing_func str in
-                    loop (result::acc))
+                (match (block_modifier (next_str, 0)) with
+                | Parsed _ -> List.rev acc
+                | Failed -> (loop (empty::acc)))
             | None -> List.rev acc)
-        | str, _ ->
-            let result = parsing_func str in
-            loop (result::acc)
+        | Failed -> List.rev acc)
       with Stream.Failure -> List.rev acc in
-    let first_line =
-      parsing_func (String.slice fstr ~first:start) in
-    loop [first_line] in
+    match parse_first (s, pos) with
+    | Parsed (first, _) -> Parsed (loop [first], (s, pos))
+    | Failed -> Failed in
 
-  let get_block fstr =
-    match get_block_modifier fstr with
-    | Some (block_modifier) ->
-        let get_lines (is_ext, start) =
-          get_func to_line fstr is_ext start in
-        let get_strings (is_ext, start) =
-          get_func (fun x -> x) fstr is_ext start in
-        (match block_modifier with
-        | BHeader (n, (o, t)) -> Header (n, (o, get_lines t))
-        | BBlockquote (o, t)  -> Blockquote (o, get_lines t)
-        | BFootnote (n, (o, t)) -> Footnote (n, (o, get_lines t))
-        | BParagraph (o, t) -> Paragraph    (o, get_lines t)
-        | BBlockcode (o, t) -> Blockcode    (o, get_strings t)
-        | BPre       (o, t) -> Pre          (o, get_strings t)
-        | BNumlist   (o, e) -> Numlist      (o, get_elements '#' e)
-        | BBulllist  (o, e) -> Bulllist     (o, get_elements '*' e)
-        | BTable (topts, frow) -> Table (topts, get_rows frow))
-    | None ->
-        Paragraph (([], None, (0,0)), get_func to_line fstr false 0) in
+  let get_lines extended (s, pos) =
+    let parse_line       = line in
+    let parse_first_line = line in
+    get_content parse_first_line parse_line [] extended (s, pos) in
+
+  let get_strings extended (s, pos) =
+    let parse_string (s, pos) =
+      match s with
+      | ""  -> Failed
+      | _ -> Parsed (s, (s, (String.length s))) in
+    let parse_first_string (s, first) =
+      let s = String.slice ~first s in
+      parse_string (s, first) in
+    get_content parse_first_string parse_string "" extended (s, pos) in
+
+  let celloptions =
+    let option =
+      (p_char '_' >>> return `Head)   |||
+      (valign >>= fun x -> return (`Valign x)) |||
+      (p_char '\\' >>> p_int >>= fun x -> return (`Colspan x)) |||
+      (p_char '/'  >>> p_int >>= fun x -> return (`Rowspan x)) in
+    let add (celltype, valign, ((colspan, rowspan) as cellspan)) = function
+      | `Head -> (Head, valign, cellspan)
+      | `Valign x -> (celltype, Some x, cellspan)
+      | `Colspan x -> (celltype, valign, (Some x, rowspan))
+      | `Rowspan x -> (celltype, valign, (colspan, Some x)) in
+    p_plusf option add default_celloptions in
+
+  let empty_line = [] in
+
+  let element c prev_level =
+    let bullet = p_many p_whitespace >>> c in
+    bullet >>>
+    p_upto_timesf prev_level
+      (p_many p_whitespace >>> c)
+      (fun l _ -> succ l) 1 >>= fun lvl ->
+    (* if you remove line below, strings started with Strong text will be
+     * parsed as elements of list *)
+    p_plus p_whitespace >>>
+    line >>= fun line ->
+    return (lvl, line) in
+
+  let get_element c prev_level x =
+    match Stream.peek stream with
+    | Some s ->
+        (element c prev_level >>= fun e ->
+        return (Stream.junk stream; e)) (s, 0)
+    | None -> Failed in
+
+  let get_elements c =
+    element (p_char c) 0 >>= fun ((f_e_lvl, _) as first_element) ->
+    p_manyf_arg
+      (fun (prev_lvl, elements) -> get_element (p_char c) prev_lvl)
+      (fun (_, acc) (lvl, line) -> lvl, (lvl, line)::acc)
+      (f_e_lvl, [first_element]) >>= fun (_, rev_elements) ->
+    return (List.rev (rev_elements)) in
+
+  let row peeks =
+    (* FIXME: must be clean!!!1111 *)
+    let peeks = ref peeks in
+    (* suppose you has already parsed first '|' *)
+    let get_cell =
+      (* it's for |foo\nbar|
+       * hate this *)
+      let continue_cell x =
+        let rec loop acc cell_peeks x =
+          match peekn stream (!peeks + cell_peeks) with
+          | None -> Failed
+          | Some s ->
+              (collect_phrases_with
+                (* FIXME *)
+                (phrase ~end_of_phrase:(
+                  end_of_phrase |||
+                  (* FIXME *)
+                  (* check if it works with |(@code@)| *)
+                  dont_jump (
+                    p_many p_punct >>>
+                    p_char '|' >>> return ()))
+                  0)
+                (
+                  (p_char '|' >>> return true) |||
+                  (p_end >>> return false)
+                ) >>= function
+                | line, true ->
+                    return (peeks := !peeks + (succ cell_peeks); List.rev (line::acc))
+                | line, false ->
+                    loop (line::acc) (succ cell_peeks)
+              ) (s, 0) in
+        loop [] 0 x in
+
+      p_opt default_celloptions (
+        celloptions >>= fun copts ->
+        p_char '.' >>>
+        p_plus p_whitespace >>>
+        return copts) >>= fun copts ->
+      (
+        (* empty cell *)
+        (p_char '|' >>> return (empty_line, true)) |||
+        (current_pos >>= fun beg_of_line ->
+        collect_phrases_with
+          (* FIXME *)
+          (phrase ~end_of_phrase:(
+            end_of_phrase |||
+            (* FIXME *)
+            dont_jump (p_many p_punct >>> p_char '|' >>> return ()))
+            beg_of_line)
+          (
+            (p_char '|' >>> return true) |||
+            (p_end >>> return false)
+          ))
+      ) >>= function
+      | first_line, true -> return (copts, [first_line])
+      | first_line, false -> continue_cell >>= fun lines ->
+      return (copts, first_line::lines) in
+
+    p_many p_whitespace >>> (* skip whitespaces *)
+    p_opt default_tableoptions (
+      tableoptions_plus >>= fun topts ->
+      p_char '.' >>>
+      p_plus p_whitespace >>>
+      return topts) >>= fun topts ->
+    p_char '|' >>>
+    get_cell >>= fun first_cell ->
+    p_manyf_ends_with
+      get_cell
+      (fun acc x -> x :: acc)
+      [first_cell]
+      p_end >>= fun rev_cells ->
+    return (njunk stream !peeks; (topts, List.rev rev_cells)) in
+
+  let get_extra_rows =
+    p_manyf
+      (fun _ ->
+        match Stream.peek stream with
+        | None -> Failed
+        | Some s -> row 1 (s, 0))
+      (fun acc x -> x :: acc) [] >>= fun rev_rows ->
+    return (List.rev rev_rows) in
+
+  let get_rows =
+    row 0 >>= fun first_row ->
+    get_extra_rows >>= fun extra_rows ->
+    return (first_row::extra_rows) in
+
+  let get_block s =
+    (
+      (* block marked with modifier *)
+      (block_modifier >>= function
+        | `Textblock (bm, opts, extended) ->
+            let lines   f = get_lines   extended >>= fun r -> return (f r) in
+            let strings f = get_strings extended >>= fun r -> return (f r) in
+            (match bm with
+            | `Header lvl -> lines   (fun x -> Header (lvl, (opts, x)))
+            | `Blockquote -> lines   (fun x -> Blockquote   (opts, x))
+            | `Footnote n -> lines   (fun x -> Footnote (n, (opts, x)))
+            | `Blockcode  -> strings (fun x -> Blockcode    (opts, x))
+            | `Pre        -> strings (fun x -> Pre          (opts, x))
+            | `Paragraph  -> lines   (fun x -> Paragraph    (opts, x)))
+        | `Table topts ->
+            (get_extra_rows >>= function
+            | [] -> fail
+            | rows ->  return (Table (topts, rows)))
+      (* only table *)
+      ) ||| (
+        get_rows >>= fun rows ->
+        return (Table (default_tableoptions, rows))
+      (* bullist *)
+      (* FIXME: we forgot about options *)
+      ) ||| (
+        get_elements '*' >>= fun elements ->
+        return (Bulllist (default_options, elements))
+      (* numlist *)
+      ) ||| (
+        get_elements '#' >>= fun elements ->
+        return (Numlist (default_options, elements))
+      (* usual text paragraph *)
+      ) ||| (
+        get_lines false >>= fun lines ->
+        return (Paragraph (default_options, lines))
+      )
+    ) (s, 0) >> function
+    | Parsed (r, _) -> r
+    | Failed -> assert false (* FIXME *) in
 
   let rec next_block () =
     try

@@ -66,11 +66,15 @@ let xhtml_of_block =
     | Acronym (a, b) ->
         (* FIXME: what the braces? *)
         {{ [ <acronym title=(utf b)>['(' !(utf a) ')'] ] }}
-    | Image (a, src, alt) ->
+    | Image (a, float, src, alt) ->
         let alt = match alt with
         | Some s -> {{ {alt=(utf s)} }}
         | None -> {{ {alt=""} }} in
-        {{ [ <img ((pa a) ++ {src=(utf src)} ++ alt)>[] ] }}
+        let float = match float with
+        | Some Float_left  -> {{ {style={:"float: left" :}} }}
+        | Some Float_right -> {{ {style={:"float: right":}} }}
+        | None -> {{ {} }} in
+        {{ [ <img ((pa a) ++ {src=(utf src)} ++ alt ++ float)>[] ] }}
     | Link _        -> raise (Invalid_textile "unexpected link")
 
   and parse_phrase = function
@@ -149,11 +153,11 @@ let xhtml_of_block =
 
   let parse_cells cells =
     xmlfold
-      (fun ((celltype, topts, cellspan), lines) ->
-        (* FIXME: topts *)
+      (fun ((celltype, valign, cellspan), lines) ->
+        let va = parse_valign valign in
         match celltype with
-        | Data -> {{ [<td>(parse_lines lines)] }}
-        | Head -> {{ [<th>(parse_lines lines)] }})
+        | Data -> {{ [<td (va)>(parse_lines lines)] }}
+        | Head -> {{ [<th (va)>(parse_lines lines)] }})
       (fun (acc : {{ [(th|td)+] }} ) x ->
         {{ acc @ x }} )
       cells in

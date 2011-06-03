@@ -33,6 +33,11 @@ type attr =
   | Style    of string (** p\{color:red\}. *)
   | Language of string (** p\[fr-fr\]. *) (* without backslashes :) *)
 
+(** Image float. *)
+type img_float =
+  | Float_left  (** < *)
+  | Float_right (** > *)
+
 (** Text-alignment option. *)
 type talign =
   | Right   (** > *)
@@ -75,7 +80,8 @@ type phrase =
   | Span        of (attr list * phrase list) (** % *)
   | Code        of (attr list * phrase list) (** @ *)
   | Acronym of string * string               (** ABC(Always Be Closing *)
-  | Image of attr list * string * string option (** !imgsrc(alt)! *)
+  | Image of attr list * img_float option *
+      string * string option (** !imgsrc(alt)! *)
   | Link of (attr list * phrase list) *
       string option * string (** "linktext(title)":url *)
 

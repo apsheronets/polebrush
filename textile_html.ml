@@ -65,11 +65,15 @@ let of_block ?(escape=true) block =
     | Code        (a,l) -> p "<code%s>%s</code>" (pa a) (pl l)
     | Acronym (a, b) ->
         p "<acronym title=\"%s\">%s</acronym>" (esc b) (esc_cdata a)
-    | Image (a, src, alt) ->
+    | Image (a, float, src, alt) ->
         (let alt = match alt with
         | Some s -> p "alt=\"%s\"" (esc s)
         | None -> "alt=\"\"" in
-        p "<img%s %s src=\"%s\" />" (pa a) alt (esc src))
+        let float = match float with
+        | Some Float_left  -> " style=\"float: left\""
+        | Some Float_right -> " style=\"float: right\""
+        | None -> "" in
+        p "<img%s%s %s src=\"%s\" />" (pa a) float alt (esc src))
     | Link ((attrs, l), title, url) ->
         (let title = match title with
           | Some s -> sprintf " title=%S" (esc s)
@@ -125,11 +129,11 @@ let of_block ?(escape=true) block =
   let pt = parse_tableoptions in
 
   let parse_cells cells =
-    String.concat "" (List.map (fun ((celltype, topts, cellspan), lines) ->
+    String.concat "" (List.map (fun ((celltype, valign, cellspan), lines) ->
       let tag = match celltype with
       | Data -> "td" | Head -> "th" in
-      (* FIXME: topts *)
-      sprintf "<%s>%s</%s>" tag (parse_lines lines) tag) cells) in
+      let va = parse_valign valign in
+      sprintf "<%s%s>%s</%s>" tag va (parse_lines lines) tag) cells) in
 
   let parse_rows rows =
     String.concat "" (List.map (fun (topts, cells) ->

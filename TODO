@@ -1,4 +1,5 @@
 * Acronyms.
 * Combined declarations of classes and ids like (myclass#myid)
-* !imgsrc(hello!)! doesn't work, fix it
 * correct lists support
+* horizonatal text align in cells
+* strings like @(code)@

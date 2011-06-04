@@ -164,13 +164,17 @@ let p_int (s, pos) =
 let p_str str =
   String.fold_left (fun p c -> p >>> p_char c) (return '!') str;;
 
-(* too slow, disabled *)
-(*let rec p_seq prs = (* sequence of something *)
-  prs >>= fun x ->
-  p_opt [x] (p_seq prs >>= fun lst -> return (x::lst))*)
-
 (** sequence of something *)
 let rec p_seq prs =
+  p_manyf prs (fun acc x -> x :: acc) [] >>= fun rl ->
+  return (List.rev rl)
+
+(* too slow, disabled *)
+(*let rec p_seq1 prs = (* sequence of something *)
+  prs >>= fun x ->
+  p_opt [x] (p_seq1 prs >>= fun lst -> return (x::lst))*)
+
+let rec p_seq1 prs =
   prs >>= fun v0 ->
   p_manyf prs (fun acc x -> x :: acc) [v0] >>= fun rl ->
   return (List.rev rl)

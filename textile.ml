@@ -624,13 +624,11 @@ let of_stream stream =
     return (njunk stream !peeks; (topts, List.rev rev_cells)) in
 
   let get_extra_rows =
-    p_manyf
+    p_seq
       (fun _ ->
         match Stream.peek stream with
         | None -> Failed
-        | Some s -> row 1 (s, 0))
-      (fun acc x -> x :: acc) [] >>= fun rev_rows ->
-    return (List.rev rev_rows) in
+        | Some s -> row 1 (s, 0)) in
 
   let get_rows =
     row 0 >>= fun first_row ->

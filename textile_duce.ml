@@ -64,8 +64,7 @@ let xhtml_of_block =
     | Span        (a,l) -> {{ [ <span   (pa a)>(pl l) ] }}
     | Code        (a,l) -> {{ [ <code   (pa a)>(pl l) ] }}
     | Acronym (a, b) ->
-        (* FIXME: what the braces? *)
-        {{ [ <acronym title=(utf b)>['(' !(utf a) ')'] ] }}
+        {{ [ <acronym title=(utf b)>(utf a) ] }}
     | Image (a, float, src, alt) ->
         let alt = match alt with
         | Some s -> {{ {alt=(utf s)} }}
@@ -168,13 +167,34 @@ let xhtml_of_block =
       (fun (acc : {{ [tr+] }} ) x ->
         {{ acc @ x }} ) in
 
-  let parse_list elements =
-    (* FIXME: not correct *)
-    xmlfold
-      (fun (level, line) -> {{ [<li>(parse_line line)] }})
-      (fun (acc : {{ [li+] }} ) x ->
-        {{ acc @ x }} )
-      elements in
+  let parse_list (f: {{ [li+] }} -> {{ ol|ul }} ) =
+    let rec fill_lvl
+        filled_lvl
+        (prev:flows)
+        (acc:{{[li*]}})
+        : Textile.element list -> ( {{ [li+] }} * Textile.element list) =
+      function
+      | (lvl, line) :: t when lvl = filled_lvl ->
+          fill_lvl filled_lvl (parse_line line) {{ acc @ [<li>prev] }} t
+      | (lvl, line) :: t when lvl = filled_lvl + 1 ->
+          let first = parse_line line in
+          let lis, rest = fill_lvl lvl first {{ [] }} t in
+          fill_lvl filled_lvl {{ [!prev (f lis)] }} acc rest
+      | ((lvl, _) :: t) as l when lvl < filled_lvl ->
+          {{ acc @ [<li>prev] }}, l
+      | [] as l ->
+          {{ acc @ [<li>prev] }}, l
+      | (lvl, _) :: _ ->
+          raise (Invalid_textile (
+            sprintf "strange bull- or numlist: filled level is %d, but the next element has level %d"
+              filled_lvl lvl)) in
+    function
+    | [] -> raise (Invalid_textile "empty bull- or numlist")
+    | (1, line)::t ->
+        let first = parse_line line in
+        let lis, _ = fill_lvl 1 first {{ [] }} t in
+        f lis
+    | _ -> raise (Invalid_textile "strange bull- or numlist") in
 
   function
     | Header (i, (opts, lines)) ->
@@ -198,10 +218,10 @@ let xhtml_of_block =
           <code>(parse_strings strings)] }}
     | Pre (opts, strings) ->
         {{ <pre (po opts)>(parse_strings strings) }}
-    | Numlist (opts, elements) -> (* FIXME: opts *)
-        {{ <ol>(parse_list elements) }}
-    | Bulllist (opts, elements) ->
-        {{ <ul>(parse_list elements) }}
+    | Numlist  elements ->
+        parse_list (fun lis -> {{ <ol>lis }}) elements
+    | Bulllist elements ->
+        parse_list (fun lis -> {{ <ul>lis }}) elements
     | Table (topts, rows) ->
         {{ <table (pt topts)>(parse_rows rows) }}
 

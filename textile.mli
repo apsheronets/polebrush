@@ -132,8 +132,8 @@ type block =
   | Paragraph  of (options * line list)     (** p. *)
   | Blockcode  of (options * string list)   (** bc. *)
   | Pre        of (options * string list)   (** pre. *)
-  | Numlist    of (options * element list)  (** # *)
-  | Bulllist   of (options * element list)  (** * *)
+  | Numlist    of element list              (** # *)
+  | Bulllist   of element list              (** * *)
   | Table      of (tableoptions * row list) (** |t|a|b| *)
 
 (** {2 Translation} *)

@@ -82,8 +82,8 @@ type block =
   | Blockcode  of (options * string list)   (** bc. *)
   | Pre        of (options * string list)   (** pre. *)
   (* FIXME: why options? *)
-  | Numlist    of (options * element list)  (** # *)
-  | Bulllist   of (options * element list)  (** * *)
+  | Numlist    of element list              (** # *)
+  | Bulllist   of element list              (** * *)
   | Table      of (tableoptions * row list) (** |t|a|b| *)
 
 let (>>) f g = g f
@@ -659,14 +659,11 @@ let of_stream stream =
         get_rows >>= fun rows ->
         return (Table (default_tableoptions, rows))
       (* bullist *)
-      (* FIXME: we forgot about options *)
       ) ||| (
-        get_elements '*' >>= fun elements ->
-        return (Bulllist (default_options, elements))
+        get_elements '*' >>= fun el -> return (Bulllist el)
       (* numlist *)
       ) ||| (
-        get_elements '#' >>= fun elements ->
-        return (Numlist (default_options, elements))
+        get_elements '#' >>= fun el -> return (Numlist  el)
       (* usual text paragraph *)
       ) ||| (
         get_lines false >>= fun lines ->

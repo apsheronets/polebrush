@@ -18,6 +18,8 @@
 open Printf
 open Textile
 
+exception Invalid_textile of string
+
 let of_block ?(escape=true) block =
   let esc s =
     let strlen = String.length s in
@@ -139,10 +141,30 @@ let of_block ?(escape=true) block =
     String.concat "" (List.map (fun (topts, cells) ->
       sprintf "<tr%s>%s</tr>" (pt topts) (parse_cells cells)) rows) in
 
-  let parse_list elements =
-    (* FIXME: not correct *)
-    String.concat "" (List.map (fun (level, line) ->
-      sprintf "<li>%s</li>" (parse_line line)) elements) in
+  let parse_list f =
+    let rec fill_lvl filled_lvl prev acc =
+      function
+      | (lvl, line) :: t when lvl = filled_lvl ->
+          fill_lvl filled_lvl (parse_line line) (sprintf "%s<li>%s</li>" acc prev) t
+      | (lvl, line) :: t when lvl = filled_lvl + 1 ->
+          let first = parse_line line in
+          let lis, rest = fill_lvl lvl first "" t in
+          fill_lvl filled_lvl (prev ^ (f lis)) acc rest
+      | ((lvl, _) :: t) as l when lvl < filled_lvl ->
+          sprintf "%s<li>%s</li>" acc prev, l
+      | [] as l ->
+          sprintf "%s<li>%s</li>" acc prev, l
+      | (lvl, _) :: _ ->
+          raise (Invalid_textile (
+            sprintf "strange bull- or numlist: filled level is %d, but the next element has level %d"
+              filled_lvl lvl)) in
+    function
+    | [] -> raise (Invalid_textile "empty bull- or numlist")
+    | (1, line)::t ->
+        let first = parse_line line in
+        let lis, _ = fill_lvl 1 first "" t in
+        f lis
+    | _ -> raise (Invalid_textile "strange bull- or numlist") in
 
   let pl = parse_lines in
   match block with
@@ -164,10 +186,10 @@ let of_block ?(escape=true) block =
   | Pre (opts, strings) ->
       sprintf "<pre%s>%s</pre>"
         (po opts) (to_lines strings)
-  | Numlist (opts, elements) -> (* FIXME: opts *)
-      sprintf "<ol>%s</ol>" (parse_list elements)
-  | Bulllist (opts, elements) ->
-      sprintf "<ul>%s</ul>" (parse_list elements)
+  | Numlist  elements ->
+      parse_list (sprintf "<ol>%s</ol>") elements
+  | Bulllist elements ->
+      parse_list (sprintf "<ul>%s</ul>") elements
   | Table (topts, rows) ->
       sprintf "<table%s>%s</table>" (pt topts) (parse_rows rows)
 

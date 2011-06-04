@@ -17,6 +17,9 @@
 
 (** Facilities for converting textile into html *)
 
+(** Raises only when function receives invalid AST, for example, with [Header 10]. *)
+exception Invalid_textile of string
+
 (** Function will not escape special HTML chars if [escape] is false. Default is true. *)
 val of_stream : ?escape:bool -> Textile.block Stream.t -> string Stream.t
 

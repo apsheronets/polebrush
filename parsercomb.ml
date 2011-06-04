@@ -164,9 +164,16 @@ let p_int (s, pos) =
 let p_str str =
   String.fold_left (fun p c -> p >>> p_char c) (return '!') str;;
 
-let rec p_seq prs = (* sequence of something *)
+(* too slow, disabled *)
+(*let rec p_seq prs = (* sequence of something *)
   prs >>= fun x ->
-  p_opt [x] (p_seq prs >>= fun lst -> return (x::lst))
+  p_opt [x] (p_seq prs >>= fun lst -> return (x::lst))*)
+
+(** sequence of something *)
+let rec p_seq prs =
+  prs >>= fun v0 ->
+  p_manyf prs (fun acc x -> x :: acc) [v0] >>= fun rl ->
+  return (List.rev rl)
 
 let rec p_list prs psep = (* list of something, separated by given separator parser *)
   prs >>= fun x ->

@@ -141,9 +141,6 @@ let p_manyf_ends_with prs f v0 e =
 let p_plusf prs f v0 =
   prs >>= fun x -> return (f v0 x) >>= p_manyf prs f
 
-let p_many1f prs f =
-  prs >>= fun v0 ->  p_manyf prs f v0
-
 let isdigit c = c>='0' && c<='9'
 let p_digit = p_pred isdigit
 

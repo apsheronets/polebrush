@@ -146,8 +146,14 @@ let of_stream stream =
     (style    >>= fun s -> return (Style s)) |||
     (language >>= fun s -> return (Language s)) in
 
-  let attrs =
-    p_manyf attr (fun acc x -> x::acc) [] in
+  (*let attrs =
+    p_manyf attr (fun acc x -> x::acc) [] in*)
+
+  (* this is for correct parsing strings like _(hi)_ *)
+  let try_attrs f =
+    (p_seq attr >>= f) |||
+    (*(p_plusf attr (fun acc x -> x::acc) [] >>= f) |||*)
+    (f []) in
 
   let img_float =
     (p_char '<' >>> return Float_left)  |||
@@ -242,11 +248,6 @@ let of_stream stream =
       (* and closed modifier also should not be after whitespace *)
       let closed_modifier m =
         check_prev p_not_whitespace >>> m in
-      (* this is for correct parsing strings like _(hi)_ *)
-      (* FIXME *)
-      let try_attrs f =
-        (attrs >>= fun a -> (f a)) |||
-        (f []) in
       (* there are general definition of simple phrases *)
       let sp modifier =
         opened_modifier modifier >>= fun (f, cm) ->

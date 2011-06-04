@@ -342,7 +342,7 @@ let of_stream stream =
         p_char '"' >>>
         (* XXX: hm *)
         check_current p_not_whitespace >>>
-        attrs >>= fun a ->
+        try_attrs (fun a ->
         current_pos >>= fun beg_of_line ->
         collect_phrases_with (phrases_except_hyperlinks beg_of_line end_of_phrase) (
           (end_with_title >>= fun (title, url) -> return (Some title, url)) |||
@@ -350,7 +350,7 @@ let of_stream stream =
         ) >>= fun (line, (title_opt, url)) ->
 
         let r = Link ((a, line), title_opt, url) in
-        return (r, last_cdata_pos)
+        return (r, last_cdata_pos))
       ) in
 
     (* general definition of phrase *)

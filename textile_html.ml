@@ -130,14 +130,14 @@ let of_block ?(escape=true) block =
   let po = parse_options in
   let pt = parse_tableoptions in
 
-  let parse_cells cells =
-    String.concat "" (List.map (fun ((celltype, valign, cellspan), lines) ->
+  let parse_cells (cells : cell list) =
+    String.concat "" (List.map (fun ((celltype, topts, cellspan), lines) ->
       let tag = match celltype with
       | Data -> "td" | Head -> "th" in
-      let va = parse_valign valign in
-      sprintf "<%s%s>%s</%s>" tag va (parse_lines lines) tag) cells) in
+      let topts = pt topts in
+      sprintf "<%s%s>%s</%s>" tag topts (parse_lines lines) tag) cells) in
 
-  let parse_rows rows =
+  let parse_rows (rows : Textile.row list) =
     String.concat "" (List.map (fun (topts, cells) ->
       sprintf "<tr%s>%s</tr>" (pt topts) (parse_cells cells)) rows) in
 

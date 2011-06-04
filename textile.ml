@@ -67,7 +67,7 @@ type celltype =
   | Data
   | Head (* _ *)
 type celloptions =
-  celltype * valign option * cellspan
+  celltype * tableoptions * cellspan
 type cell =
   celloptions * line list
 type row =
@@ -93,7 +93,7 @@ open Parsercomb
 let of_stream stream =
   let default_options = ([], None, (0, 0)) in
   let default_tableoptions = (default_options, None) in
-  let default_celloptions = (Data, None, (None, None)) in
+  let default_celloptions = (Data, default_tableoptions, (None, None)) in
 
   let num_of_char c =
     (int_of_char c) - 48 in
@@ -510,15 +510,15 @@ let of_stream stream =
 
   let celloptions =
     let option =
-      (p_char '_' >>> return `Head)   |||
-      (valign >>= fun x -> return (`Valign x)) |||
+      (p_char '_' >>> return `Head) |||
+      (tableoption >>= fun x -> return (`Topt x)) |||
       (p_char '\\' >>> p_int >>= fun x -> return (`Colspan x)) |||
       (p_char '/'  >>> p_int >>= fun x -> return (`Rowspan x)) in
-    let add (celltype, valign, ((colspan, rowspan) as cellspan)) = function
-      | `Head -> (Head, valign, cellspan)
-      | `Valign x -> (celltype, Some x, cellspan)
-      | `Colspan x -> (celltype, valign, (Some x, rowspan))
-      | `Rowspan x -> (celltype, valign, (colspan, Some x)) in
+    let add (celltype, topts, ((colspan, rowspan) as cellspan)) = function
+      | `Head -> (Head, topts, cellspan)
+      | `Topt x -> (celltype, add_tableoption topts x, cellspan)
+      | `Colspan x -> (celltype, topts, (Some x, rowspan))
+      | `Rowspan x -> (celltype, topts, (colspan, Some x)) in
     p_plusf option add default_celloptions in
 
   let empty_line = [] in
@@ -585,8 +585,7 @@ let of_stream stream =
 
       p_opt default_celloptions (
         celloptions >>= fun copts ->
-        p_char '.' >>>
-        p_plus p_whitespace >>>
+        p_str ". " >>>
         return copts) >>= fun copts ->
       (
         (* empty cell *)

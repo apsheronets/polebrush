@@ -150,16 +150,15 @@ let xhtml_of_block =
   let po = parse_options in
   let pt = parse_tableoptions in
 
-  let parse_cells cells =
+  let parse_cells =
     xmlfold
-      (fun ((celltype, valign, cellspan), lines) ->
-        let va = parse_valign valign in
+      (fun ((celltype, topts, cellspan), lines) ->
+        let topts = pt topts in
         match celltype with
-        | Data -> {{ [<td (va)>(parse_lines lines)] }}
-        | Head -> {{ [<th (va)>(parse_lines lines)] }})
+        | Data -> {{ [<td (topts)>(parse_lines lines)] }}
+        | Head -> {{ [<th (topts)>(parse_lines lines)] }})
       (fun (acc : {{ [(th|td)+] }} ) x ->
-        {{ acc @ x }} )
-      cells in
+        {{ acc @ x }} ) in
 
   let parse_rows =
     xmlfold

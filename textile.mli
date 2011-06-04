@@ -112,7 +112,7 @@ type cellspan =
 
 (** Cell specific options. *)
 type celloptions =
-  celltype * valign option * cellspan
+  celltype * tableoptions * cellspan
 
 (** A cell in row. *)
 type cell =

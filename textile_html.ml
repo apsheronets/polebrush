@@ -64,7 +64,7 @@ let of_block ?(escape=true) block =
     | Superscript (a,l) -> p "<sup%s>%s</sup>" (pa a) (pl l)
     | Subscript   (a,l) -> p "<sub%s>%s</sub>" (pa a) (pl l)
     | Span        (a,l) -> p "<span%s>%s</span>" (pa a) (pl l)
-    | Code        (a,s) -> p "<code%s>%s</code>" (pa a) (esc_cdata s)
+    | Code        (a,s) -> p "<code%s>%s</code>" (pa a) (esc s)
     | Acronym (a, b) ->
         p "<acronym title=\"%s\">%s</acronym>" (esc b) (esc_cdata a)
     | Image (a, float, src, alt) ->

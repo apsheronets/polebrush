@@ -79,7 +79,7 @@ type phrase =
   | Subscript   of (attr list * phrase list) (** ~ *)
   | Span        of (attr list * phrase list) (** % *)
   | Code        of (attr list * phrase list) (** @ *)
-  | Acronym of string * string               (** ABC(Always Be Closing *)
+  | Acronym of string * string               (** ABC(Always Be Closing) *)
   | Image of attr list * img_float option *
       string * string option (** !imgsrc(alt)! *)
   | Link of (attr list * phrase list) *

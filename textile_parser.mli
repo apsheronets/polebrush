@@ -15,13 +15,10 @@
  *
  * Copyright 2010 Alexander Markov *)
 
-let text = Stream.from (fun _ -> try Some (read_line ())
-  with End_of_file -> None)
+(** Textile markup language parser
 
-let textile = Textile_parser.of_stream text
+  @author Alexander Markov 2009 apsheronets\@gmail.com
+*)
 
-let xhtml = Textile_html.of_stream textile
+val of_stream : string Stream.t -> Textile.block Stream.t
 
-let _ =
-  Stream.iter (print_string) xhtml;
-  exit 0

@@ -37,7 +37,7 @@ let () =
         try Some (input_line chan)
         with End_of_file -> None) in
   let lines = to_lines "test.txt" in
-  let textile = Textile.of_stream lines in
+  let textile = Textile_pasrer.of_stream lines in
   Stream.iter print_endline (Textile_html.of_block textile)
 ]} *)
 

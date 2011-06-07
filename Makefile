@@ -9,21 +9,24 @@ TEXTILE = parsercomb.ml textile.ml
 HTML    = textile_html.ml
 DUCEF   = textile_duce.ml
 
-CAMLSRC=parsercomb.ml textile.ml textile_html.ml
-DUCESRC=xhtmlpretty_duce.ml textile_duce.ml
+CAMLSRC = parsercomb.ml textile.ml textile_parser.ml textile_html.ml
+DUCESRC = xhtmlpretty_duce.ml textile_duce.ml
+
+DOCSRC = textile.mli textile_parser.mli textile_html.mli
+DUCEDOCSRC = $(DOCSRC) textile_duce.mli
 
 PACKAGES = extlib
 DUCEPACKAGES = ocamlduce,ocsigen
 
 DUCELIB = -package $(PACKAGES),$(DUCEPACKAGES)
-DUCEC   = ocamlducefind ocamlc   -g -thread $(DUCELIB)
-DUCEOPT = ocamlducefind ocamlopt -g -thread $(DUCELIB)
+DUCEC   = ocamlducefind ocamlc   -thread $(DUCELIB)
+DUCEOPT = ocamlducefind ocamlopt -thread $(DUCELIB)
 DUCEDOC = ocamlducefind ocamldoc $(DUCELIB)
 DUCEDEP = ocamlducefind ocamldep
 
 LIB = -package $(PACKAGES)
-CAMLC   = ocamlfind ocamlc -g $(LIB)
-CAMLOPT = ocamlfind ocamlopt -g $(LIB)
+CAMLC   = ocamlfind ocamlc $(LIB)
+CAMLOPT = ocamlfind ocamlopt $(LIB)
 CAMLDOC = ocamlfind ocamldoc $(LIB)
 CAMLDEP = ocamlfind ocamldep
 
@@ -37,13 +40,13 @@ DUCECMXS = textile_duce.cmxs
 all: byte native shared
 
 ifeq "$(DUCE)" "yes"
-byte:   textile.cma  textile_html.cma  textile_duce.cma  META
-native: textile.cmxa textile_html.cmxa textile_duce.cmxa META
-shared: textile.cmxs textile_html.cmxs textile_duce.cmxs META
+byte:          textile.cma  textile_html.cma  textile_duce.cma  META
+native:        textile.cmxa textile_html.cmxa textile_duce.cmxa META
+shared: native textile.cmxs textile_html.cmxs textile_duce.cmxs META
 else
-byte:   textile.cma  textile_html.cma  META
-native: textile.cmxa textile_html.cmxa META
-shared: textile.cmxs textile_html.cmxs META
+byte:          textile.cma  textile_html.cma  META
+native:        textile.cmxa textile_html.cmxa META
+shared: native textile.cmxs textile_html.cmxs META
 endif
 
 META: META.in META.duce.in VERSION
@@ -64,11 +67,11 @@ ifeq "$(DUCE)" "yes"
 	cat META.duce >> META
 endif
 
-textile.cma:  parsercomb.cmo textile.cmo
+textile.cma:  parsercomb.cmo textile.cmo textile_parser.cmo
 	$(CAMLC) -a -o $@ $^
-textile.cmxa: parsercomb.cmx textile.cmx
+textile.cmxa: parsercomb.cmx textile.cmx textile_parser.cmx
 	$(CAMLOPT) -a -o $@ $^
-textile.cmxs: parsercomb.cmx textile.cmx
+textile.cmxs: parsercomb.cmx textile.cmx textile_parser.cmx
 	$(CAMLOPT) -a -o $@ $^
 
 textile_html.cma:  textile_html.cmo
@@ -134,9 +137,9 @@ uninstall:
 doc: byte
 	-mkdir -p doc
 ifeq "$(DUCE)" "yes"
-	$(DUCEDOC) -d doc -html $(CAMLSRC:.ml=.mli) textile_duce.mli
+	$(DUCEDOC) -d doc -html $(DUCEDOCSRC)
 else
-	$(CAMLDOC) -d doc -html $(CAMLSRC:.ml=.mli)
+	$(CAMLDOC) -d doc -html $(DOCSRC)
 endif
 
 

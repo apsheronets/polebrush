@@ -15,7 +15,7 @@
  *
  * Copyright 2010 Alexander Markov *)
 
-(** Textile markup language support for OCaml
+(** Textile markup language syntax tree
 
   @see
   <http://thresholdstate.com/articles/4312/the-textile-reference-manual>
@@ -137,8 +137,6 @@ type block =
   | Table      of (tableoptions * row list) (** |t|a|b| *)
 
 (** {2 Translation} *)
-
-val of_stream : string Stream.t -> block Stream.t
 
 (** Translates the line to a simple string which can be used, for example,
 in HTML's <title> tag. All markup will be removed. *)

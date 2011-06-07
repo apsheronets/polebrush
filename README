@@ -50,14 +50,8 @@ Installation :
 
 $ sudo make install
 
-Another branch
---------------
+See also
+--------
 
-The previous code looks too imperative and ugly for me, so I've tried
-to rewrite it with functional streams and parsers from camlp5. But it becomes
-tens times slower because Fstream.of_channel and other fstream/fparser things.
-Anyway, you can find this branch here:
+* textile-ocaml home: http://komar.bitcheese.net/en/code/textile-ocaml
 
-* darcs get http://komar.bitcheese.net/darcs/textile-fstream/
-
-I will be happy if you'll help me with that or simply show me a good combinator library.

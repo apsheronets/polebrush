@@ -203,25 +203,10 @@ let p_float =
   p_manyf p_digit mkFloat (0.0, 0.1) >>= fun (fv, _) ->
   return (sign *. (float_of_int n +. fv))
 
-let p_all_until str =
-  let ps = p_str str in
-  let rec loop (s, pos) =
-    try
-      let c = s.[pos] in
-      if c = str.[0]
-      then
-        match ps (s, pos) with
-        | Parsed _ as ok -> ok
-        | Failed -> loop (s, succ pos)
-      else loop (s, succ pos)
-    with Invalid_argument _ -> Failed in
-  loop
-
-(* FIXME: wtf is this? *)
-let p_all_until_ps ps (s, pos) =
+let p_str_until until (s, pos) =
   let beg = pos in
   let rec loop (s, pos) =
-    match ps (s, pos) with
+    match until (s, pos) with
     | Parsed (_, (s, new_p)) ->
         Parsed (String.slice ~first:beg ~last:pos s, (s, new_p))
     | Failed ->
@@ -232,12 +217,12 @@ let p_all_until_ps ps (s, pos) =
   loop (s, pos)
 
 (* seems like a replacement for parsec's manyTill *)
-let p_until_ps p ps (s, pos) =
+let p_until p until (s, pos) =
   let beg = pos in
   let rec loop (s, pos) =
-    match ps (s, pos) with
-    | Parsed (ps_r, (s, new_p)) ->
-        Parsed ((String.slice ~first:beg ~last:pos s, ps_r), (s, new_p))
+    match until (s, pos) with
+    | Parsed (until_r, (s, new_p)) ->
+        Parsed ((String.slice ~first:beg ~last:pos s, until_r), (s, new_p))
     | Failed ->
         (match p (s, pos) with
         | Parsed _ -> loop (s, succ pos)

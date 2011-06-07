@@ -134,11 +134,11 @@ let of_stream stream =
   let p_class =
     (* ((())) must be for padding, not for class (( or something else *)
     p_char '(' >>>
-    p_until_ps (p_pred ((<>) '(')) (p_char ')') >>= fun (classname, _) ->
+    p_until (p_pred ((<>) '(')) (p_char ')') >>= fun (classname, _) ->
     p_string_not_empty classname in
-  let id       = p_str "(#" >>> p_all_until_ps (p_char ')') >>= p_string_not_empty in
-  let style    = p_char '{' >>> p_all_until_ps (p_char '}') >>= p_string_not_empty in
-  let language = p_char '[' >>> p_all_until_ps (p_char ']') >>= p_string_not_empty in
+  let id       = p_str "(#" >>> p_str_until (p_char ')') >>= p_string_not_empty in
+  let style    = p_char '{' >>> p_str_until (p_char '}') >>= p_string_not_empty in
+  let language = p_char '[' >>> p_str_until (p_char ']') >>= p_string_not_empty in
 
   let attr =
     (id       >>= fun s -> return (Id s))    ||| (* must be first *)
@@ -293,13 +293,13 @@ let of_stream stream =
         (* ...:http://komar.bitcheese.net *)
         let link_opt =
           (p_char ':' >>>
-            p_until_ps (p_not_whitespace) end_of_phrase >>= fun (url, _) ->
+            p_until (p_not_whitespace) end_of_phrase >>= fun (url, _) ->
             return (Some url)) |||
           (end_of_phrase >>> return None) in
         (* ...(title)! *)
         let end_with_title =
           p_char '(' >>>
-          p_all_until_ps (p_str ")!") >>= fun title ->
+          p_str_until (p_str ")!") >>= fun title ->
           link_opt >>= fun link_opt ->
           return (title, link_opt) in
         (* ...! *)
@@ -309,7 +309,7 @@ let of_stream stream =
 
         p_char '!' >>>
         img_opts >>= fun (attrs, float) ->
-        p_until_ps p_not_whitespace (
+        p_until p_not_whitespace (
           (end_with_title >>= fun (title, link_opt) -> return (Some title, link_opt)) |||
           (end_with_no_title >>= fun link_opt -> return (None, link_opt))
         ) >>= fun (src, (title_opt, link_opt)) ->
@@ -320,6 +320,13 @@ let of_stream stream =
           | Some url -> Link (([], [image]), None, url)
           | None -> image in
         return (r, last_cdata_pos)
+      ) ||| (
+      (* acronym *)
+        p_until
+          (p_pred (fun c -> c >= 'A' && c <= 'Z'))
+          (p_char '(') >>= fun (acr, _) ->
+        p_str_until (p_char ')') >>= fun desc ->
+        return (Acronym (acr, desc), last_cdata_pos)
       )
     (* ... and one with them. *)
     and phrases last_cdata_pos end_of_phrase =
@@ -329,11 +336,11 @@ let of_stream stream =
         (* ...:http://komar.bitcheese.net *)
         let url =
           p_char ':' >>>
-          p_until_ps (p_not_whitespace) end_of_phrase >>= fun (url, _) -> return url in
+          p_until (p_not_whitespace) end_of_phrase >>= fun (url, _) -> return url in
         (* ...(title)'' *)
         let end_with_title =
           p_char '(' >>>
-          p_all_until_ps (p_str ")\"") >>= fun title ->
+          p_str_until (p_str ")\"") >>= fun title ->
           url >>= fun url ->
           return (title, url) in
         (* ...'' *)

@@ -21,374 +21,388 @@ open Parsercomb
 
 let (>>) f g = g f
 
-let of_stream stream =
-  let default_options = ([], None, (0, 0)) in
-  let default_tableoptions = (default_options, None) in
-  let default_celloptions = (Data, default_tableoptions, (None, None)) in
+(* some defaults *)
 
-  let num_of_char c =
-    (int_of_char c) - 48 in
+let default_options = ([], None, (0, 0))
+let default_tableoptions = (default_options, None)
+let default_celloptions = (Data, default_tableoptions, (None, None))
+let empty_line = []
 
-  (* junks n elements of the stream *)
-  let rec njunk stream n =
-    if n > 0
-    then
-      (Stream.junk stream;
-      njunk stream (n-1))
-    else () in
-  (* returns n'th element of the stream (from zero) *)
-  let rec peekn stream n =
-    let l = Stream.npeek (n+1) stream in
-    try Some (List.nth l n)
-    with Failure _ | ExtList.List.Invalid_index _ -> (* ExtLib, goddamn *)
-      None in
+(* various helpers *)
 
-  let p_string_not_empty = function "" -> fail | s -> return s in
+let num_of_char c =
+  (int_of_char c) - 48
 
-  let whitespace = function ' ' | '\t' -> true | _ -> false in
-  let punct = function
-    | '!' | '"' | '$' | '%' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | '-' | '.' | ':' | ';' | '<' | '=' | '>' | '?' -> true | _ -> false in
-    (*(c >= '!' && c < '#') || (c > '#' && c <= '.') || (c >= ':' && c <= '?') in*)
-  let p_whitespace = p_pred whitespace in
-  let p_not_whitespace = p_pred (fun c -> not (whitespace c)) in
-  let p_punct = p_pred punct in
+(* junks n elements of the stream *)
+let rec njunk stream n =
+  if n > 0
+  then
+    (Stream.junk stream;
+    njunk stream (n-1))
+  else ()
 
-  (* checks previous char; doesn't jump *)
-  let check_prev p (s, pos) =
-    let prev_pos = pos - 1 in
-    (p >>= fun r -> fun _ -> Parsed (r, (s, pos))) (s, prev_pos) in
+(* returns n'th element of the stream (from zero) *)
+let rec peekn stream n =
+  let l = Stream.npeek (n+1) stream in
+  try Some (List.nth l n)
+  with Failure _ | ExtList.List.Invalid_index _ -> (* ExtLib, goddamn *)
+    None
 
-  (* checks current char; doesn't jump *)
-  let check_current p (s, pos) =
-    (p >>= fun r -> fun _ -> Parsed (r, (s, pos))) (s, pos) in
+(* let's parse *)
 
-  let p_class =
-    (* ((())) must be for padding, not for class (( or something else *)
-    p_char '(' >>>
-    p_until (p_pred ((<>) '(')) (p_char ')') >>= fun (classname, _) ->
-    p_string_not_empty classname in
-  let id       = p_str "(#" >>> p_str_until (p_char ')') >>= p_string_not_empty in
-  let style    = p_char '{' >>> p_str_until (p_char '}') >>= p_string_not_empty in
-  let language = p_char '[' >>> p_str_until (p_char ']') >>= p_string_not_empty in
+let p_string_not_empty = function "" -> fail | s -> return s
 
-  let attr =
-    (id       >>= fun s -> return (Id s))    ||| (* must be first *)
-    (p_class  >>= fun s -> return (Class s)) |||
-    (style    >>= fun s -> return (Style s)) |||
-    (language >>= fun s -> return (Language s)) in
+let whitespace = function ' ' | '\t' -> true | _ -> false
+let punct = function
+  | '!' | '"' | '$' | '%' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | '-' | '.' | ':' | ';' | '<' | '=' | '>' | '?' -> true | _ -> false
+  (*(c >= '!' && c < '#') || (c > '#' && c <= '.') || (c >= ':' && c <= '?')*)
+let p_whitespace = p_pred whitespace
+let p_not_whitespace = p_pred (fun c -> not (whitespace c))
+let p_punct = p_pred punct
 
-  (*let attrs =
-    p_manyf attr (fun acc x -> x::acc) [] in*)
+(* checks previous char; doesn't jump *)
+let check_prev p (s, pos) =
+  let prev_pos = pos - 1 in
+  (p >>= fun r -> fun _ -> Parsed (r, (s, pos))) (s, prev_pos)
 
-  (* this is for correct parsing strings like _(hi)_ *)
-  let try_attrs f =
-    (p_seq attr >>= f) |||
-    (*(p_plusf attr (fun acc x -> x::acc) [] >>= f) |||*)
-    (f []) in
+(* checks current char; doesn't jump *)
+let check_current p (s, pos) =
+  (p >>= fun r -> fun _ -> Parsed (r, (s, pos))) (s, pos)
 
-  let img_float =
-    (p_char '<' >>> return Float_left)  |||
-    (p_char '>' >>> return Float_right) in
+let p_class =
+  (* ((())) must be for padding, not for class (( or something else *)
+  p_char '(' >>>
+  p_until (p_pred ((<>) '(')) (p_char ')') >>= fun (classname, _) ->
+  p_string_not_empty classname
+let id       = p_str "(#" >>> p_str_until (p_char ')') >>= p_string_not_empty
+let style    = p_char '{' >>> p_str_until (p_char '}') >>= p_string_not_empty
+let language = p_char '[' >>> p_str_until (p_char ']') >>= p_string_not_empty
 
-  (* attributes + floating *)
-  let img_opts =
-    let add_opt (attrs, float_opt) = function
-      | `Attr a -> (a::attrs, float_opt)
-      | `Img_float f -> (attrs, Some f) in
-    p_manyf
-      ((attr >>= fun a -> return (`Attr a)) ||| (img_float >>= fun f -> return (`Img_float f)))
-      add_opt
-      ([], None) in
+let attr =
+  (id       >>= fun s -> return (Id s))    ||| (* must be first *)
+  (p_class  >>= fun s -> return (Class s)) |||
+  (style    >>= fun s -> return (Style s)) |||
+  (language >>= fun s -> return (Language s))
 
-  (* matches typical beginning of phrase: beginning of line or whitespace *)
-  let begin_of_phrase begin_of_line follow =
-    (* why so unobvious solution? We can write it in that way:
-     * begin_of_phrase begin_of_line =
-     *   p_pos begin_of_line ||| p_whitespace || p_punct
-     * but it willn't parse strings like (@code@) because it will detect
-     * the begin of line, then found '(' which is not a modifier and all
-     * parser fails. *)
-    (p_pos begin_of_line >>> follow) |||
-    (
-      ((p_whitespace) |||
-      (p_pred (function '(' | '\'' | '"' -> true | _ -> false))) >>> follow
-    ) in
+(*let attrs =
+  p_manyf attr (fun acc x -> x::acc) [] in*)
 
-  (* matches typical end of phrase: end of line, whitespace, punctuation
-   * doesn't jump *)
-  let end_of_phrase =
-    dont_jump
-      (p_end |||
-        (p_whitespace >>> return ()) |||
-        (p_many p_punct >>> (p_end ||| (p_whitespace >>> return ())))) in
+(* this is for correct parsing strings like _(hi)_ *)
+let try_attrs f =
+  (p_seq attr >>= f) |||
+  (*(p_plusf attr (fun acc x -> x::acc) [] >>= f) |||*)
+  (f [])
 
-  (* The Great Function which collects CData and more interesting
-   * phrases into line *)
-  (* it fails if [until] not reached *)
-  let collect_phrases_with phrase until (s, begin_of_line) =
-    let rec loop acc beg (s, pos) =
-      let go_on () = loop acc beg (s, succ pos) in
-      match phrase (s, pos) with
-      | Parsed ((phrase_r, last_cdata_pos), (s, next_p)) ->
-          let acc_values =
-            (* do we have some cdata to save which was
-             * before we found a phrase? *)
-            if last_cdata_pos <= beg
-            then
-              [phrase_r]
+let img_float =
+  (p_char '<' >>> return Float_left)  |||
+  (p_char '>' >>> return Float_right)
+
+(* attributes + floating *)
+let img_opts =
+  let add_opt (attrs, float_opt) = function
+    | `Attr a -> (a::attrs, float_opt)
+    | `Img_float f -> (attrs, Some f) in
+  p_manyf
+    ((attr >>= fun a -> return (`Attr a)) ||| (img_float >>= fun f -> return (`Img_float f)))
+    add_opt
+    ([], None)
+
+(* matches typical beginning of phrase: beginning of line or whitespace *)
+let begin_of_phrase begin_of_line follow =
+  (* why so unobvious solution? We can write it in that way:
+   * begin_of_phrase begin_of_line =
+   *   p_pos begin_of_line ||| p_whitespace || p_punct
+   * but it willn't parse strings like (@code@) because it will detect
+   * the begin of line, then found '(' which is not a modifier and all
+   * parser fails. *)
+  (p_pos begin_of_line >>> follow) |||
+  (
+    ((p_whitespace) |||
+    (p_pred (function '(' | '\'' | '"' -> true | _ -> false))) >>> follow
+  )
+
+(* matches typical end of phrase: end of line, whitespace, punctuation
+ * doesn't jump *)
+let end_of_phrase =
+  dont_jump
+    (p_end |||
+      (p_whitespace >>> return ()) |||
+      (p_many p_punct >>> (p_end ||| (p_whitespace >>> return ()))))
+
+(* The Great Function which collects CData and more interesting
+ * phrases into line *)
+(* it fails if [until] not reached *)
+let collect_phrases_with phrase until (s, begin_of_line) =
+  let rec loop acc beg (s, pos) =
+    let go_on () = loop acc beg (s, succ pos) in
+    match phrase (s, pos) with
+    | Parsed ((phrase_r, last_cdata_pos), (s, next_p)) ->
+        let acc_values =
+          (* do we have some cdata to save which was
+           * before we found a phrase? *)
+          if last_cdata_pos <= beg
+          then
+            [phrase_r]
+          else
+            let prev_cdata =
+              CData (String.slice ~first:beg ~last:last_cdata_pos s) in
+            [prev_cdata; phrase_r] in
+        loop (List.rev_append acc_values acc) next_p (s, next_p)
+    | Failed  ->
+        (match until (s, pos) with
+        | Parsed (until_r, (s, new_pos)) ->
+            if pos = begin_of_line
+            then go_on ()
             else
-              let prev_cdata =
-                CData (String.slice ~first:beg ~last:last_cdata_pos s) in
-              [prev_cdata; phrase_r] in
-          loop (List.rev_append acc_values acc) next_p (s, next_p)
-      | Failed  ->
-          (match until (s, pos) with
-          | Parsed (until_r, (s, new_pos)) ->
-              if pos = begin_of_line
-              then go_on ()
-              else
-                let acc =
-                  (* do we have some cdata to save which was
-                   * before we found a termination combinator? *)
-                  if beg = pos
-                  then acc
-                  else
-                    let last_cdata =
-                      CData (String.slice ~first:beg ~last:pos s) in
-                    last_cdata::acc in
-                  Parsed ((List.rev acc, until_r), (s, new_pos))
-          | Failed ->
-              if pos >= String.length s
-              then
-                (* we have passed the whole string
-                 * and haven't catch a termination combinator *)
-                Failed
-              else go_on ()) in
-    loop [] begin_of_line (s, begin_of_line) in
+              let acc =
+                (* do we have some cdata to save which was
+                 * before we found a termination combinator? *)
+                if beg = pos
+                then acc
+                else
+                  let last_cdata =
+                    CData (String.slice ~first:beg ~last:pos s) in
+                  last_cdata::acc in
+                Parsed ((List.rev acc, until_r), (s, new_pos))
+        | Failed ->
+            if pos >= String.length s
+            then
+              (* we have passed the whole string
+               * and haven't catch a termination combinator *)
+              Failed
+            else go_on ()) in
+  loop [] begin_of_line (s, begin_of_line)
 
-  (* parsed all phrases except [CData] *)
-  let rec phrase ?(end_of_phrase=end_of_phrase) beg_of_line =
+(* parsed all phrases except [CData] *)
+let rec phrase ?(end_of_phrase=end_of_phrase) beg_of_line =
 
-    (* Hyprlinks can't contain another hyperlinks.
-     * Therefore, there are two functions for parsing phrases —
-     * one without hyperlinks... *)
-    let rec phrases_except_hyperlinks last_cdata_pos end_of_phrase =
-      (* opened modifier should not be before whitespace *)
-      let opened_modifier m =
-        m >>= fun r -> check_current p_not_whitespace >>> return r in
-      (* and closed modifier also should not be after whitespace *)
-      let closed_modifier m =
-        check_prev p_not_whitespace >>> m in
-      (* there are general definition of simple phrases *)
-      let sp modifier =
-        opened_modifier modifier >>= fun (f, cm) ->
-        try_attrs (fun a ->
-        (*check_current p_not_whitespace >>>*)
-        current_pos >>= fun beg_of_line ->
-        (* FIXME *)
-        let p_c = (closed_modifier cm >>> end_of_phrase) in
-        collect_phrases_with
-          (phrase ~end_of_phrase:(
-              end_of_phrase ||| (dont_jump p_c >>> return ()))
-            beg_of_line)
-          p_c >>= fun (line, _) ->
-        return (f (a, line), last_cdata_pos)) in
-      (* remember that __ and ** must be first than _ and * *)
-      (* simple_phrase (p_str "__") (fun x -> Italic      x) |||
-         simple_phrase (p_char '_') (fun x -> Emphasis    x) |||
-         simple_phrase (p_str "**") (fun x -> Bold        x) |||
-         simple_phrase (p_char '*') (fun x -> Strong      x) |||
-         simple_phrase (p_str "??") (fun x -> Citation    x) |||
-         simple_phrase (p_char '-') (fun x -> Deleted     x) |||
-         simple_phrase (p_char '+') (fun x -> Inserted    x) |||
-         simple_phrase (p_char '^') (fun x -> Superscript x) |||
-         simple_phrase (p_char '~') (fun x -> Subscript   x) |||
-         simple_phrase (p_char '%') (fun x -> Span        x) |||
-         simple_phrase (p_char '@') (fun x -> Code        x) |||*)
-      sp (p_str "__" >>> return ((fun x -> Italic      x), p_str "__")) |||
-      sp (p_str "**" >>> return ((fun x -> Bold        x), p_str "**")) |||
-      sp (p_pred2 (function
-        | '_' -> Some (((fun x -> Emphasis    x), p_char '_'))
-        | '*' -> Some (((fun x -> Strong      x), p_char '*'))
-        | '-' -> Some (((fun x -> Deleted     x), p_char '-'))
-        | '+' -> Some (((fun x -> Inserted    x), p_char '+'))
-        | '^' -> Some (((fun x -> Superscript x), p_char '^'))
-        | '~' -> Some (((fun x -> Subscript   x), p_char '~'))
-        | '%' -> Some (((fun x -> Span        x), p_char '%'))
-        | '@' -> Some (((fun x -> Code        x), p_char '@'))
-        | _ -> None)) |||
-      sp (p_str "??" >>> return ((fun x -> Citation    x), p_str "??")) |||
-      (* and there are not too simple phrases *)
-      (* image *)
-      (
-        (* ...:http://komar.bitcheese.net *)
-        let link_opt =
-          (p_char ':' >>>
-            p_until (p_not_whitespace) end_of_phrase >>= fun (url, _) ->
-            return (Some url)) |||
-          (end_of_phrase >>> return None) in
-        (* ...(title)! *)
-        let end_with_title =
-          p_char '(' >>>
-          p_str_until (p_str ")!") >>= fun title ->
-          link_opt >>= fun link_opt ->
-          return (title, link_opt) in
-        (* ...! *)
-        let end_with_no_title =
-          p_char '!' >>>
-          link_opt in
-
-        p_char '!' >>>
-        img_opts >>= fun (attrs, float) ->
-        p_until p_not_whitespace (
-          (end_with_title >>= fun (title, link_opt) -> return (Some title, link_opt)) |||
-          (end_with_no_title >>= fun link_opt -> return (None, link_opt))
-        ) >>= fun (src, (title_opt, link_opt)) ->
-
-        let r =
-          let image = Image (attrs, float, src, title_opt) in
-          match link_opt with
-          | Some url -> Link (([], [image]), None, url)
-          | None -> image in
-        return (r, last_cdata_pos)
-      ) ||| (
-      (* acronym *)
-        p_until
-          (p_pred (fun c -> c >= 'A' && c <= 'Z'))
-          (p_char '(') >>= fun (acr, _) ->
-        p_str_until (p_char ')') >>= fun desc ->
-        return (Acronym (acr, desc), last_cdata_pos)
-      )
-    (* ... and one with them. *)
-    and phrases last_cdata_pos end_of_phrase =
-      (phrases_except_hyperlinks last_cdata_pos end_of_phrase) |||
-      (* hyperlink *)
-      (
-        (* ...:http://komar.bitcheese.net *)
-        let url =
-          p_char ':' >>>
-          p_until (p_not_whitespace) end_of_phrase >>= fun (url, _) -> return url in
-        (* ...(title)'' *)
-        let end_with_title =
-          p_char '(' >>>
-          p_str_until (p_str ")\"") >>= fun title ->
-          url >>= fun url ->
-          return (title, url) in
-        (* ...'' *)
-        let end_with_no_title =
-          p_char '"' >>> url in
-
-        p_char '"' >>>
-        (* XXX: hm *)
-        check_current p_not_whitespace >>>
-        try_attrs (fun a ->
-        current_pos >>= fun beg_of_line ->
-        collect_phrases_with (phrases_except_hyperlinks beg_of_line end_of_phrase) (
-          (end_with_title >>= fun (title, url) -> return (Some title, url)) |||
-          (end_with_no_title >>= fun url -> return (None, url))
-        ) >>= fun (line, (title_opt, url)) ->
-
-        let r = Link ((a, line), title_opt, url) in
-        return (r, last_cdata_pos))
-      ) in
-
-    (* general definition of phrase *)
+  (* Hyprlinks can't contain another hyperlinks.
+   * Therefore, there are two functions for parsing phrases —
+   * one without hyperlinks... *)
+  let rec phrases_except_hyperlinks last_cdata_pos end_of_phrase =
+    (* opened modifier should not be before whitespace *)
+    let opened_modifier m =
+      m >>= fun r -> check_current p_not_whitespace >>> return r in
+    (* and closed modifier also should not be after whitespace *)
+    let closed_modifier m =
+      check_prev p_not_whitespace >>> m in
+    (* there are general definition of simple phrases *)
+    let sp modifier =
+      opened_modifier modifier >>= fun (f, cm) ->
+      try_attrs (fun a ->
+      (*check_current p_not_whitespace >>>*)
+      current_pos >>= fun beg_of_line ->
+      (* FIXME *)
+      let p_c = (closed_modifier cm >>> end_of_phrase) in
+      collect_phrases_with
+        (phrase ~end_of_phrase:(
+            end_of_phrase ||| (dont_jump p_c >>> return ()))
+          beg_of_line)
+        p_c >>= fun (line, _) ->
+      return (f (a, line), last_cdata_pos)) in
+    (* remember that __ and ** must be first than _ and * *)
+    (* simple_phrase (p_str "__") (fun x -> Italic      x) |||
+       simple_phrase (p_char '_') (fun x -> Emphasis    x) |||
+       simple_phrase (p_str "**") (fun x -> Bold        x) |||
+       simple_phrase (p_char '*') (fun x -> Strong      x) |||
+       simple_phrase (p_str "??") (fun x -> Citation    x) |||
+       simple_phrase (p_char '-') (fun x -> Deleted     x) |||
+       simple_phrase (p_char '+') (fun x -> Inserted    x) |||
+       simple_phrase (p_char '^') (fun x -> Superscript x) |||
+       simple_phrase (p_char '~') (fun x -> Subscript   x) |||
+       simple_phrase (p_char '%') (fun x -> Span        x) |||
+       simple_phrase (p_char '@') (fun x -> Code        x) |||*)
+    sp (p_str "__" >>> return ((fun x -> Italic      x), p_str "__")) |||
+    sp (p_str "**" >>> return ((fun x -> Bold        x), p_str "**")) |||
+    sp (p_pred2 (function
+      | '_' -> Some (((fun x -> Emphasis    x), p_char '_'))
+      | '*' -> Some (((fun x -> Strong      x), p_char '*'))
+      | '-' -> Some (((fun x -> Deleted     x), p_char '-'))
+      | '+' -> Some (((fun x -> Inserted    x), p_char '+'))
+      | '^' -> Some (((fun x -> Superscript x), p_char '^'))
+      | '~' -> Some (((fun x -> Subscript   x), p_char '~'))
+      | '%' -> Some (((fun x -> Span        x), p_char '%'))
+      | '@' -> Some (((fun x -> Code        x), p_char '@'))
+      | _ -> None)) |||
+    sp (p_str "??" >>> return ((fun x -> Citation    x), p_str "??")) |||
+    (* and there are not too simple phrases *)
+    (* image *)
     (
-      (* phrases are usually surrounded with whitespaces, punctuation,
-       * begining/ending of line —
-       * every case described in begin_of_phrase *)
-      (
-        begin_of_phrase beg_of_line (
-          current_pos >>= fun last_cdata_pos ->
-          phrases last_cdata_pos end_of_phrase)
-      )
-      |||
-      (* but phrases can also be surrounded with square brackets *)
-      (
-        (* XXX: this makes code about 4x faster *)
-        (*current_pos >>= fun last_cdata_pos ->
-        p_char '[' >>>
-        phrases last_cdata_pos (p_char ']' >>> return ())*)
-        p_char '[' >>>
-        current_pos >>= fun _pos ->
-        phrases (_pos-1) (p_char ']' >>> return ())
-      )
+      (* ...:http://komar.bitcheese.net *)
+      let link_opt =
+        (p_char ':' >>>
+          p_until (p_not_whitespace) end_of_phrase >>= fun (url, _) ->
+          return (Some url)) |||
+        (end_of_phrase >>> return None) in
+      (* ...(title)! *)
+      let end_with_title =
+        p_char '(' >>>
+        p_str_until (p_str ")!") >>= fun title ->
+        link_opt >>= fun link_opt ->
+        return (title, link_opt) in
+      (* ...! *)
+      let end_with_no_title =
+        p_char '!' >>>
+        link_opt in
+
+      p_char '!' >>>
+      img_opts >>= fun (attrs, float) ->
+      p_until p_not_whitespace (
+        (end_with_title >>= fun (title, link_opt) -> return (Some title, link_opt)) |||
+        (end_with_no_title >>= fun link_opt -> return (None, link_opt))
+      ) >>= fun (src, (title_opt, link_opt)) ->
+
+      let r =
+        let image = Image (attrs, float, src, title_opt) in
+        match link_opt with
+        | Some url -> Link (([], [image]), None, url)
+        | None -> image in
+      return (r, last_cdata_pos)
+    ) ||| (
+    (* acronym *)
+      p_until
+        (p_pred (fun c -> c >= 'A' && c <= 'Z'))
+        (p_char '(') >>= fun (acr, _) ->
+      p_str_until (p_char ')') >>= fun desc ->
+      return (Acronym (acr, desc), last_cdata_pos)
+    )
+  (* ... and one with them. *)
+  and phrases last_cdata_pos end_of_phrase =
+    (phrases_except_hyperlinks last_cdata_pos end_of_phrase) |||
+    (* hyperlink *)
+    (
+      (* ...:http://komar.bitcheese.net *)
+      let url =
+        p_char ':' >>>
+        p_until (p_not_whitespace) end_of_phrase >>= fun (url, _) -> return url in
+      (* ...(title)'' *)
+      let end_with_title =
+        p_char '(' >>>
+        p_str_until (p_str ")\"") >>= fun title ->
+        url >>= fun url ->
+        return (title, url) in
+      (* ...'' *)
+      let end_with_no_title =
+        p_char '"' >>> url in
+
+      p_char '"' >>>
+      (* XXX: hm *)
+      check_current p_not_whitespace >>>
+      try_attrs (fun a ->
+      current_pos >>= fun beg_of_line ->
+      collect_phrases_with (phrases_except_hyperlinks beg_of_line end_of_phrase) (
+        (end_with_title >>= fun (title, url) -> return (Some title, url)) |||
+        (end_with_no_title >>= fun url -> return (None, url))
+      ) >>= fun (line, (title_opt, url)) ->
+
+      let r = Link ((a, line), title_opt, url) in
+      return (r, last_cdata_pos))
     ) in
 
-  let line (s, pos) =
-    (collect_phrases_with (phrase pos) p_end >>= fun (line, _) ->
-    return line) (s, pos) in
+  (* general definition of phrase *)
+  (
+    (* phrases are usually surrounded with whitespaces, punctuation,
+     * begining/ending of line —
+     * every case described in begin_of_phrase *)
+    (
+      begin_of_phrase beg_of_line (
+        current_pos >>= fun last_cdata_pos ->
+        phrases last_cdata_pos end_of_phrase)
+    )
+    |||
+    (* but phrases can also be surrounded with square brackets *)
+    (
+      (* XXX: this makes code about 4x faster *)
+      (*current_pos >>= fun last_cdata_pos ->
+      p_char '[' >>>
+      phrases last_cdata_pos (p_char ']' >>> return ())*)
+      p_char '[' >>>
+      current_pos >>= fun _pos ->
+      phrases (_pos-1) (p_char ']' >>> return ())
+    )
+  )
 
-  let align =
-    (p_str "<>" >>> return Justify) ||| (* must be first *)
-    (p_char '<' >>> return Left)    |||
-    (p_char '=' >>> return Center)  |||
-    (p_char '>' >>> return Right) in
+let line (s, pos) =
+  (collect_phrases_with (phrase pos) p_end >>= fun (line, _) ->
+  return line) (s, pos)
 
-  let option =
-    (attr  >>= fun x -> return (`Attr x))  |||
-    (align >>= fun x -> return (`Align x)) |||
-    (p_char '(' >>> return `Left_padding)  |||
-    (p_char ')' >>> return `Right_padding) in
+let line_of_string s =
+  match line (s, 0) with
+  | Parsed (r, _) -> r
+  | Failed -> empty_line
 
-  (* should we fix it? *)
-  let add_option (attrs, talign, (lp, rp)) = function
-    | `Attr a -> (a::attrs, talign, (lp, rp))
-      (* may be we need to add warning or something else
-       * when align is already set *)
-    | `Align a -> (attrs, Some a, (lp, rp))
-    | `Left_padding -> (attrs, talign, (succ lp, rp))
-    | `Right_padding -> (attrs, talign, (lp, succ rp)) in
+let align =
+  (p_str "<>" >>> return Justify) ||| (* must be first *)
+  (p_char '<' >>> return Left)    |||
+  (p_char '=' >>> return Center)  |||
+  (p_char '>' >>> return Right)
 
-  let options =
-    p_manyf option add_option default_options in
+let option =
+  (attr  >>= fun x -> return (`Attr x))  |||
+  (align >>= fun x -> return (`Align x)) |||
+  (p_char '(' >>> return `Left_padding)  |||
+  (p_char ')' >>> return `Right_padding)
 
-  let valign =
-    (p_char '^' >>> return Top   ) |||
-    (p_char '-' >>> return Middle) |||
-    (p_char '~' >>> return Bottom) in
+(* should we fix it? *)
+let add_option (attrs, talign, (lp, rp)) = function
+  | `Attr a -> (a::attrs, talign, (lp, rp))
+    (* may be we need to add warning or something else
+     * when align is already set *)
+  | `Align a -> (attrs, Some a, (lp, rp))
+  | `Left_padding -> (attrs, talign, (succ lp, rp))
+  | `Right_padding -> (attrs, talign, (lp, succ rp))
 
-  let tableoption =
-    (option >>= fun x -> return (`Option x)) |||
-    (valign >>= fun x -> return (`Valign x)) in
-  let add_tableoption (opts, valign) = function
-    | `Valign x -> (opts, Some x)
-    | `Option x -> (add_option opts x, valign) in
-  let tableoptions =
-    p_manyf tableoption add_tableoption default_tableoptions in
-  let tableoptions_plus =
-    p_plusf tableoption add_tableoption default_tableoptions in
+let options =
+  p_manyf option add_option default_options
 
-  let block_type =
-    (p_char 'h' >>>
-      p_pred (fun c -> c >= '1' && c <= '6') >>= fun c ->
-      return (`Textblock (`Header (num_of_char c)))) |||
-    (p_str "bq" >>> return (`Textblock `Blockquote)) |||
-    (p_str "fn" >>> p_unsign_int >>= fun i ->
-      return (`Textblock (`Footnote i))) |||
-    (p_str "bc"  >>> return (`Textblock `Blockcode)) |||
-    (p_str "pre" >>> return (`Textblock `Pre)) |||
-    (p_char 'p'  >>> return (`Textblock `Paragraph)) |||
-    (p_str "table" >>> return `Table) in
+let valign =
+  (p_char '^' >>> return Top   ) |||
+  (p_char '-' >>> return Middle) |||
+  (p_char '~' >>> return Bottom)
 
-  let block_modifier =
-    p_many p_whitespace >>> (* skip whitespaces *)
-    block_type >>= function
-    | `Table ->
-        tableoptions >>= fun topts ->
-        p_opt () (p_char '.' >>> return ()) >>>
-        p_many p_whitespace >>>
-        p_end >>>
-        return (`Table topts)
-    | `Textblock bm ->
-        options >>= fun opts ->
-        p_char '.' >>>
-        ((p_char '.' >>> return true) ||| (return false)) >>= fun extended ->
-        p_char ' ' >>>
-        (* FIXME *)
-        (*line >>= fun line ->*)
-        (*dont_jump p_somechar >>>*)
-        return (`Textblock (bm, opts, extended)) in
+let tableoption =
+  (option >>= fun x -> return (`Option x)) |||
+  (valign >>= fun x -> return (`Valign x))
+let add_tableoption (opts, valign) = function
+  | `Valign x -> (opts, Some x)
+  | `Option x -> (add_option opts x, valign)
+let tableoptions =
+  p_manyf tableoption add_tableoption default_tableoptions
+let tableoptions_plus =
+  p_plusf tableoption add_tableoption default_tableoptions
+
+let block_type =
+  (p_char 'h' >>>
+    p_pred (fun c -> c >= '1' && c <= '6') >>= fun c ->
+    return (`Textblock (`Header (num_of_char c)))) |||
+  (p_str "bq" >>> return (`Textblock `Blockquote)) |||
+  (p_str "fn" >>> p_unsign_int >>= fun i ->
+    return (`Textblock (`Footnote i))) |||
+  (p_str "bc"  >>> return (`Textblock `Blockcode)) |||
+  (p_str "pre" >>> return (`Textblock `Pre)) |||
+  (p_char 'p'  >>> return (`Textblock `Paragraph)) |||
+  (p_str "table" >>> return `Table)
+
+let block_modifier =
+  p_many p_whitespace >>> (* skip whitespaces *)
+  block_type >>= function
+  | `Table ->
+      tableoptions >>= fun topts ->
+      p_opt () (p_char '.' >>> return ()) >>>
+      p_many p_whitespace >>>
+      p_end >>>
+      return (`Table topts)
+  | `Textblock bm ->
+      options >>= fun opts ->
+      p_char '.' >>>
+      ((p_char '.' >>> return true) ||| (return false)) >>= fun extended ->
+      p_char ' ' >>>
+      (* FIXME *)
+      (*line >>= fun line ->*)
+      (*dont_jump p_somechar >>>*)
+      return (`Textblock (bm, opts, extended))
+
+let of_stream stream =
 
   (*let get_content parse_first parse empty is_ext =
     let rec loop acc (s, pos) =
@@ -458,8 +472,6 @@ let of_stream stream =
       | `Colspan x -> (celltype, topts, (Some x, rowspan))
       | `Rowspan x -> (celltype, topts, (colspan, Some x)) in
     p_plusf option add default_celloptions in
-
-  let empty_line = [] in
 
   let element c prev_level =
     let bullet = p_many p_whitespace >>> c in

@@ -17,5 +17,7 @@
 
 (** Textile markup language parser *)
 
+val line_of_string : string -> Textile.line
+
 val of_stream : string Stream.t -> Textile.block Stream.t
 

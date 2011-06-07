@@ -262,7 +262,7 @@ let rec phrase ?(end_of_phrase=end_of_phrase) beg_of_line =
         (p_pred (fun c -> c >= 'A' && c <= 'Z'))
         (p_char '(') >>= fun (acr, _) ->
       p_string_not_empty acr >>>
-      p_str_until (p_char ')') >>= fun desc ->
+      p_str_until (p_char ')' >>> end_of_phrase) >>= fun desc ->
       return (Acronym (acr, desc), last_cdata_pos)
     )
   (* ... and one with them. *)

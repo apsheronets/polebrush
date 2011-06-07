@@ -13,14 +13,14 @@
  * You should have received a copy of the GNU General Public License
  * along with textile-ocaml.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Copyright 2010 Alexander Markov *)
+ * Copyright 2011 Alexander Markov *)
 
 (** Textile markup language syntax tree
 
   @see
   <http://thresholdstate.com/articles/4312/the-textile-reference-manual>
   the official textile reference manual
-  @author Alexander Markov 2009 apsheronets\@gmail.com
+  @author Alexander Markov apsheronets\@gmail.com
 *)
 
 (** {2 Textile syntax tree} *)

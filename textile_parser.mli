@@ -13,12 +13,9 @@
  * You should have received a copy of the GNU General Public License
  * along with textile-ocaml.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Copyright 2010 Alexander Markov *)
+ * Copyright 2011 Alexander Markov *)
 
-(** Textile markup language parser
-
-  @author Alexander Markov 2009 apsheronets\@gmail.com
-*)
+(** Textile markup language parser *)
 
 val of_stream : string Stream.t -> Textile.block Stream.t
 

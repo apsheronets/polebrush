@@ -13,7 +13,7 @@
  * You should have received a copy of the GNU General Public License
  * along with textile-ocaml.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Copyright 2010 Alexander Markov *)
+ * Copyright 2011 Alexander Markov *)
 
 (** Facilities for converting textile into ocsigen's [Xhtmltypes_duce] representation *)
 

@@ -12,8 +12,8 @@ DUCEF   = textile_duce.ml
 CAMLSRC = parsercomb.ml textile.ml textile_parser.ml textile_html.ml
 DUCESRC = xhtmlpretty_duce.ml textile_duce.ml
 
-DOCSRC = textile.mli textile_parser.mli textile_html.mli
-DUCEDOCSRC = $(DOCSRC) textile_duce.mli
+DOCSRC = textile.ml textile_parser.ml textile_html.ml textile.mli textile_parser.mli textile_html.mli
+DUCEDOCSRC = $(DOCSRC) textile_duce.ml textile_duce.mli
 
 PACKAGES = extlib
 DUCEPACKAGES = ocamlduce,ocsigen
@@ -21,13 +21,13 @@ DUCEPACKAGES = ocamlduce,ocsigen
 DUCELIB = -package $(PACKAGES),$(DUCEPACKAGES)
 DUCEC   = ocamlducefind ocamlc   -thread $(DUCELIB)
 DUCEOPT = ocamlducefind ocamlopt -thread $(DUCELIB)
-DUCEDOC = ocamlducefind ocamldoc $(DUCELIB)
+DUCEDOC = ocamlducefind ocamldoc -keep-code -colorize-code $(DUCELIB)
 DUCEDEP = ocamlducefind ocamldep
 
 LIB = -package $(PACKAGES)
 CAMLC   = ocamlfind ocamlc $(LIB)
 CAMLOPT = ocamlfind ocamlopt $(LIB)
-CAMLDOC = ocamlfind ocamldoc $(LIB)
+CAMLDOC = ocamlfind ocamldoc -keep-code -colorize-code $(LIB)
 CAMLDEP = ocamlfind ocamldep
 
 CMA  = textile.cma
@@ -71,15 +71,15 @@ textile.cma:  parsercomb.cmo textile.cmo textile_parser.cmo
 	$(CAMLC) -a -o $@ $^
 textile.cmxa: parsercomb.cmx textile.cmx textile_parser.cmx
 	$(CAMLOPT) -a -o $@ $^
-textile.cmxs: parsercomb.cmx textile.cmx textile_parser.cmx
-	$(CAMLOPT) -a -o $@ $^
+textile.cmxs: parsercomb.cmx textile.cmx textile_parser.cmx textile.cmxa
+	$(CAMLOPT) -a -o $@ parsercomb.cmx textile.cmx textile_parser.cmx
 
 textile_html.cma:  textile_html.cmo
 	$(CAMLC) -a -o $@ $^
 textile_html.cmxa: textile_html.cmx
 	$(CAMLOPT) -a -o $@ $^
-textile_html.cmxs: textile_html.cmx
-	$(CAMLOPT) -a -o $@ $^
+textile_html.cmxs: textile_html.cmx textile_html.cmxa
+	$(CAMLOPT) -a -o $@ textile_html.cmx
 
 textile_duce.cmo: textile_duce.ml
 	$(DUCEC) -c $<
@@ -92,8 +92,8 @@ textile_duce.cma:  textile_duce.cmo
 	$(DUCEC) -a -o $@ $^
 textile_duce.cmxa: textile_duce.cmx
 	$(DUCEOPT) -a -o $@ $^
-textile_duce.cmxs: textile_duce.cmx
-	$(DUCEOPT) -a -o $@ $^
+textile_duce.cmxs: textile_duce.cmx textile_duce.cmxa
+	$(DUCEOPT) -a -o $@ textile_duce.cmx
 
 itextile.cmx: textile.cmxa textile_html.cmxa itextile.ml
 	$(CAMLOPT) -c $^

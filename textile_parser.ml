@@ -21,6 +21,7 @@ open Parsercomb
 
 let (>>) f g = g f
 
+
 (* some defaults *)
 
 let default_options = ([], None, (0, 0))
@@ -28,18 +29,15 @@ let default_tableoptions = (default_options, None)
 let default_celloptions = (Data, default_tableoptions, (None, None))
 let empty_line = []
 
+
 (* various helpers *)
 
-let num_of_char c =
-  (int_of_char c) - 48
+let num_of_char c = (int_of_char c) - 48
 
 (* junks n elements of the stream *)
 let rec njunk stream n =
   if n > 0
-  then
-    (Stream.junk stream;
-    njunk stream (n-1))
-  else ()
+  then begin Stream.junk stream; njunk stream (n-1) end
 
 (* returns n'th element of the stream (from zero) *)
 let rec peekn stream n =
@@ -48,10 +46,10 @@ let rec peekn stream n =
   with Failure _ | ExtList.List.Invalid_index _ -> (* ExtLib, goddamn *)
     None
 
+
 (* let's parse *)
 
 let p_string_not_empty = function "" -> fail | s -> return s
-
 let whitespace = function ' ' | '\t' -> true | _ -> false
 let punct = function
   | '!' | '"' | '$' | '%' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | '-' | '.' | ':' | ';' | '<' | '=' | '>' | '?' -> true | _ -> false

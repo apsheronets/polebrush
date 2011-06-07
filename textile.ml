@@ -38,7 +38,7 @@ type phrase =
   | Superscript of (attr list * phrase list) (* ^ *)
   | Subscript   of (attr list * phrase list) (* ~ *)
   | Span        of (attr list * phrase list) (* % *)
-  | Code        of (attr list * phrase list) (* @ *)
+  | Code        of (attr list * string)      (* @ *)
   | Acronym of string * string               (* ABC(Always Be Closing *)
   | Image of attr list * img_float option
       * string * string option (* !imgsrc(alt)! *)
@@ -102,11 +102,11 @@ let rec string_of_line line =
         | Inserted    (_, l)
         | Superscript (_, l)
         | Subscript   (_, l)
-        | Span        (_, l)
-        | Code        (_, l) ->
+        | Span        (_, l) ->
             add (string_of_line l)
-        | Acronym (a, _) ->
-            add a
+        | Acronym (s, _)
+        | Code    (_, s) ->
+            add s
         | Image _ -> ()
         | Link ((_, l), _, _) ->
             add (string_of_line l));

@@ -62,7 +62,7 @@ let xhtml_of_block =
     | Superscript (a,l) -> {{ [ <sup    (pa a)>(pl l) ] }}
     | Subscript   (a,l) -> {{ [ <sub    (pa a)>(pl l) ] }}
     | Span        (a,l) -> {{ [ <span   (pa a)>(pl l) ] }}
-    | Code        (a,l) -> {{ [ <code   (pa a)>(pl l) ] }}
+    | Code        (a,s) -> {{ [ <code   (pa a)>(utf s) ] }}
     | Acronym (a, b) ->
         {{ [ <acronym title=(utf b)>(utf a) ] }}
     | Image (a, float, src, alt) ->

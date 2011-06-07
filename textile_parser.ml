@@ -183,7 +183,7 @@ let rec phrase ?(end_of_phrase=end_of_phrase) beg_of_line =
       m >>= fun r -> check_current p_not_whitespace >>> return r in
     (* and closed modifier also should not be after whitespace *)
     let closed_modifier m =
-      check_prev p_not_whitespace >>> m in
+      check_prev p_not_whitespace >>> m >>> end_of_phrase in
     (* there are general definition of simple phrases *)
     let sp modifier =
       opened_modifier modifier >>= fun (f, cm) ->
@@ -191,7 +191,7 @@ let rec phrase ?(end_of_phrase=end_of_phrase) beg_of_line =
       (*check_current p_not_whitespace >>>*)
       current_pos >>= fun beg_of_line ->
       (* FIXME *)
-      let p_c = (closed_modifier cm >>> end_of_phrase) in
+      let p_c = closed_modifier cm in
       collect_phrases_with
         (phrase ~end_of_phrase:(
             end_of_phrase ||| (dont_jump p_c >>> return ()))
@@ -220,10 +220,16 @@ let rec phrase ?(end_of_phrase=end_of_phrase) beg_of_line =
       | '^' -> Some (((fun x -> Superscript x), p_char '^'))
       | '~' -> Some (((fun x -> Subscript   x), p_char '~'))
       | '%' -> Some (((fun x -> Span        x), p_char '%'))
-      | '@' -> Some (((fun x -> Code        x), p_char '@'))
       | _ -> None)) |||
     sp (p_str "??" >>> return ((fun x -> Citation    x), p_str "??")) |||
     (* and there are not too simple phrases *)
+    (* code *)
+    (
+      opened_modifier (p_char '@') >>>
+      try_attrs (fun a ->
+      p_str_until (closed_modifier (p_char '@')) >>= fun s ->
+      return (Code (a, s), last_cdata_pos))
+    ) |||
     (* image *)
     (
       (* ...:http://komar.bitcheese.net *)
@@ -263,6 +269,7 @@ let rec phrase ?(end_of_phrase=end_of_phrase) beg_of_line =
         (p_char '(') >>= fun (acr, _) ->
       p_string_not_empty acr >>>
       p_str_until (p_char ')' >>> end_of_phrase) >>= fun desc ->
+      (*p_str_until (closed_modifier (p_char ')')) >>= fun desc ->*)
       return (Acronym (acr, desc), last_cdata_pos)
     )
   (* ... and one with them. *)
@@ -277,11 +284,13 @@ let rec phrase ?(end_of_phrase=end_of_phrase) beg_of_line =
       (* ...(title)'' *)
       let end_with_title =
         p_char '(' >>>
+        (*p_str_until (check_prev p_not_whitespace >>> p_str ")\"") >>= fun title ->*)
         p_str_until (p_str ")\"") >>= fun title ->
         url >>= fun url ->
         return (title, url) in
       (* ...'' *)
       let end_with_no_title =
+        (*check_prev p_not_whitespace >>>*)
         p_char '"' >>> url in
 
       p_char '"' >>>

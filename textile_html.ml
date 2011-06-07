@@ -75,12 +75,12 @@ let of_block ?(escape=true) block =
         | Some Float_left  -> " style=\"float: left\""
         | Some Float_right -> " style=\"float: right\""
         | None -> "" in
-        p "<img%s%s %s src=\"%s\" />" (pa a) float alt (esc src))
+        p "<img %s src=\"%s\"%s%s />" alt (esc src) (pa a) float)
     | Link ((attrs, l), title, url) ->
         (let title = match title with
           | Some s -> sprintf " title=%S" (esc s)
           | None -> "" in
-        p "<a%s%s href=\"%s\">%s</a>" (pa attrs) title (esc url) (pl l))
+        p "<a%s href=\"%s\"%s>%s</a>" title (esc url) (pa attrs) (pl l))
 
   and parse_line line =
     String.concat "" (List.map parse_phrase line) in
@@ -181,7 +181,7 @@ let of_block ?(escape=true) block =
       sprintf "<p%s>%s</p>" (po opts) (pl lines)
   | Blockcode (opts, strings) ->
       let popts = po opts in
-      sprintf "<pre class=\"blockcode\"%s><code>%s</code></pre>"
+      sprintf "<pre%s class=\"blockcode\"><code>%s</code></pre>"
         popts (to_lines strings)
   | Pre (opts, strings) ->
       sprintf "<pre%s>%s</pre>"

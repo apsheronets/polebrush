@@ -194,6 +194,19 @@ let phrase_surrounding end_of_phrase beg_of_line phrase =
     return (r, (_pos-1))
   )
 
+(** high level function which made for collecting phrases like [what]
+    @param what phrases to parse; everything else is CData
+    @param ended_with what can be at the end of phrase
+    @param from where to start
+    @param until end when this parser matched *)
+let collect ~what ~ended_with ~from ~until =
+  collect_phrases_with
+    (phrase_surrounding
+      ended_with
+      from
+      what)
+    until
+
 (* Hyprlinks can't contain another hyperlinks.
  * Therefore, there are two functions for parsing phrases —
  * one without hyperlinks... *)
@@ -209,15 +222,14 @@ let rec phrases_except_hyperlinks end_of_phrase =
     opened_modifier modifier >>= fun (f, cm) ->
     try_attrs (fun a ->
     (*check_current p_not_whitespace >>>*)
-    current_pos >>= fun beg_of_line ->
+    current_pos >>= fun from ->
     (* FIXME *)
-    let p_c = closed_modifier cm in
-    collect_phrases_with
-      (phrase_surrounding
-        (end_of_phrase ||| (dont_jump p_c >>> return ()))
-        beg_of_line
-        all_phrases)
-      p_c >>= fun (line, _) ->
+    let until = closed_modifier cm in
+    collect
+      ~what:all_phrases
+      ~ended_with:(end_of_phrase ||| (dont_jump until >>> return ()))
+      ~from
+      ~until >>= fun (line, _) ->
     return (f (a, line))) in
   (* remember that __ and ** must be first than _ and * *)
   (* simple_phrase (p_str "__") (fun x -> Italic      x) |||
@@ -319,13 +331,12 @@ and all_phrases end_of_phrase =
     (* XXX: hm *)
     check_current p_not_whitespace >>>
     try_attrs (fun a ->
-    current_pos >>= fun beg_of_line ->
-    collect_phrases_with
-      (phrase_surrounding
-        (end_of_phrase ||| dont_jump ((end_with_title >>> return ()) ||| (end_with_no_title >>> return ())))
-        beg_of_line
-        phrases_except_hyperlinks)
-      (
+    current_pos >>= fun from ->
+    collect
+      ~what:phrases_except_hyperlinks
+      ~ended_with:(end_of_phrase ||| dont_jump ((end_with_title >>> return ()) ||| (end_with_no_title >>> return ())))
+      ~from
+      ~until:(
         (end_with_title >>= fun (title, url) -> return (Some title, url)) |||
         (end_with_no_title >>= fun url -> return (None, url))
       ) >>= fun (line, (title_opt, url)) ->
@@ -335,7 +346,11 @@ and all_phrases end_of_phrase =
   )
 
 let line (s, pos) =
-  (collect_phrases_with (phrase_surrounding end_of_phrase pos all_phrases) p_end >>= fun (line, _) ->
+  (collect
+    ~what:all_phrases
+    ~ended_with:end_of_phrase
+    ~from:pos
+    ~until:p_end >>= fun (line, _) ->
   return line) (s, pos)
 
 let line_of_string s =
@@ -524,18 +539,17 @@ let of_stream stream =
           match peekn stream (!peeks + cell_peeks) with
           | None -> Failed
           | Some s ->
-              (collect_phrases_with
+              (collect
                 (* FIXME *)
-                (phrase_surrounding
-                  (end_of_phrase |||
+                ~what:all_phrases
+                ~ended_with:(end_of_phrase |||
                   (* FIXME *)
                   (* check if it works with |(@code@)| *)
                   dont_jump (
                     p_many p_punct >>>
                     p_char '|' >>> return ()))
-                  0
-                  all_phrases)
-                (
+                ~from:0
+                ~until:(
                   (p_char '|' >>> return true) |||
                   (p_end >>> return false)
                 ) >>= function
@@ -554,15 +568,14 @@ let of_stream stream =
         (* empty cell *)
         (p_char '|' >>> return (empty_line, true)) |||
         (current_pos >>= fun beg_of_line ->
-        collect_phrases_with
+        collect
+          ~what:all_phrases
           (* FIXME *)
-          (phrase_surrounding
-            (end_of_phrase |||
+          ~ended_with:(end_of_phrase |||
             (* FIXME *)
             dont_jump (p_many p_punct >>> p_char '|' >>> return ()))
-            beg_of_line
-            all_phrases)
-          (
+          ~from:beg_of_line
+          ~until:(
             (p_char '|' >>> return true) |||
             (p_end >>> return false)
           ))

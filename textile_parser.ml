@@ -171,170 +171,171 @@ let collect_phrases_with phrase until (s, begin_of_line) =
             else go_on ()) in
   loop [] begin_of_line (s, begin_of_line)
 
-(* parsed all phrases except [CData] *)
-let rec phrase ?(end_of_phrase=end_of_phrase) beg_of_line =
-
-  (* Hyprlinks can't contain another hyperlinks.
-   * Therefore, there are two functions for parsing phrases —
-   * one without hyperlinks... *)
-  let rec phrases_except_hyperlinks last_cdata_pos end_of_phrase =
-    (* opened modifier should not be before whitespace *)
-    let opened_modifier m =
-      m >>= fun r -> check_current p_not_whitespace >>> return r in
-    (* and closed modifier also should not be after whitespace *)
-    let closed_modifier m =
-      check_prev p_not_whitespace >>> m >>> end_of_phrase in
-    (* there are general definition of simple phrases *)
-    let sp modifier =
-      opened_modifier modifier >>= fun (f, cm) ->
-      try_attrs (fun a ->
-      (*check_current p_not_whitespace >>>*)
-      current_pos >>= fun beg_of_line ->
-      (* FIXME *)
-      let p_c = closed_modifier cm in
-      collect_phrases_with
-        (phrase ~end_of_phrase:(
-            end_of_phrase ||| (dont_jump p_c >>> return ()))
-          beg_of_line)
-        p_c >>= fun (line, _) ->
-      return (f (a, line), last_cdata_pos)) in
-    (* remember that __ and ** must be first than _ and * *)
-    (* simple_phrase (p_str "__") (fun x -> Italic      x) |||
-       simple_phrase (p_char '_') (fun x -> Emphasis    x) |||
-       simple_phrase (p_str "**") (fun x -> Bold        x) |||
-       simple_phrase (p_char '*') (fun x -> Strong      x) |||
-       simple_phrase (p_str "??") (fun x -> Citation    x) |||
-       simple_phrase (p_char '-') (fun x -> Deleted     x) |||
-       simple_phrase (p_char '+') (fun x -> Inserted    x) |||
-       simple_phrase (p_char '^') (fun x -> Superscript x) |||
-       simple_phrase (p_char '~') (fun x -> Subscript   x) |||
-       simple_phrase (p_char '%') (fun x -> Span        x) |||
-       simple_phrase (p_char '@') (fun x -> Code        x) |||*)
-    sp (p_str "__" >>> return ((fun x -> Italic      x), p_str "__")) |||
-    sp (p_str "**" >>> return ((fun x -> Bold        x), p_str "**")) |||
-    sp (p_pred2 (function
-      | '_' -> Some (((fun x -> Emphasis    x), p_char '_'))
-      | '*' -> Some (((fun x -> Strong      x), p_char '*'))
-      | '-' -> Some (((fun x -> Deleted     x), p_char '-'))
-      | '+' -> Some (((fun x -> Inserted    x), p_char '+'))
-      | '^' -> Some (((fun x -> Superscript x), p_char '^'))
-      | '~' -> Some (((fun x -> Subscript   x), p_char '~'))
-      | '%' -> Some (((fun x -> Span        x), p_char '%'))
-      | _ -> None)) |||
-    sp (p_str "??" >>> return ((fun x -> Citation    x), p_str "??")) |||
-    (* and there are not too simple phrases *)
-    (* code *)
-    (
-      opened_modifier (p_char '@') >>>
-      try_attrs (fun a ->
-      p_str_until (closed_modifier (p_char '@')) >>= fun s ->
-      return (Code (a, s), last_cdata_pos))
-    ) |||
-    (* image *)
-    (
-      (* ...:http://komar.bitcheese.net *)
-      let link_opt =
-        (p_char ':' >>>
-          p_until (p_not_whitespace) end_of_phrase >>= fun (url, _) ->
-          return (Some url)) |||
-        (end_of_phrase >>> return None) in
-      (* ...(title)! *)
-      let end_with_title =
-        p_char '(' >>>
-        p_str_until (p_str ")!") >>= fun title ->
-        link_opt >>= fun link_opt ->
-        return (title, link_opt) in
-      (* ...! *)
-      let end_with_no_title =
-        p_char '!' >>>
-        link_opt in
-
-      p_char '!' >>>
-      img_opts >>= fun (attrs, float) ->
-      p_until p_not_whitespace (
-        (end_with_title >>= fun (title, link_opt) -> return (Some title, link_opt)) |||
-        (end_with_no_title >>= fun link_opt -> return (None, link_opt))
-      ) >>= fun (src, (title_opt, link_opt)) ->
-
-      let r =
-        let image = Image (attrs, float, src, title_opt) in
-        match link_opt with
-        | Some url -> Link (([], [image]), None, url)
-        | None -> image in
-      return (r, last_cdata_pos)
-    ) ||| (
-    (* acronym *)
-      p_until
-        (p_pred (fun c -> c >= 'A' && c <= 'Z'))
-        (p_char '(') >>= fun (acr, _) ->
-      p_string_not_empty acr >>>
-      p_str_until (p_char ')' >>> end_of_phrase) >>= fun desc ->
-      (*p_str_until (closed_modifier (p_char ')')) >>= fun desc ->*)
-      return (Acronym (acr, desc), last_cdata_pos)
-    )
-  (* ... and one with them. *)
-  and phrases last_cdata_pos end_of_phrase =
-    (phrases_except_hyperlinks last_cdata_pos end_of_phrase) |||
-    (* hyperlink *)
-    (
-      (* ...:http://komar.bitcheese.net *)
-      let url =
-        p_char ':' >>>
-        p_until (p_not_whitespace) end_of_phrase >>= fun (url, _) -> return url in
-      (* ...(title)'' *)
-      let end_with_title =
-        p_char '(' >>>
-        (*p_str_until (check_prev p_not_whitespace >>> p_str ")\"") >>= fun title ->*)
-        p_str_until (p_str ")\"") >>= fun title ->
-        url >>= fun url ->
-        return (title, url) in
-      (* ...'' *)
-      let end_with_no_title =
-        (*check_prev p_not_whitespace >>>*)
-        p_char '"' >>> url in
-
-      p_char '"' >>>
-      (* XXX: hm *)
-      check_current p_not_whitespace >>>
-      try_attrs (fun a ->
-      current_pos >>= fun beg_of_line ->
-      collect_phrases_with
-        (phrases_except_hyperlinks beg_of_line
-          (end_of_phrase ||| dont_jump ((end_with_title >>> return ()) ||| (end_with_no_title >>> return ()))))
-        (
-          (end_with_title >>= fun (title, url) -> return (Some title, url)) |||
-          (end_with_no_title >>= fun url -> return (None, url))
-        ) >>= fun (line, (title_opt, url)) ->
-
-      let r = Link ((a, line), title_opt, url) in
-      return (r, last_cdata_pos))
-    ) in
-
-  (* general definition of phrase *)
+let phrase_surrounding end_of_phrase beg_of_line phrase =
+  (* phrases are usually surrounded with whitespaces, punctuation,
+   * begining/ending of line —
+   * every case described in begin_of_phrase *)
   (
-    (* phrases are usually surrounded with whitespaces, punctuation,
-     * begining/ending of line —
-     * every case described in begin_of_phrase *)
-    (
-      begin_of_phrase beg_of_line (
-        current_pos >>= fun last_cdata_pos ->
-        phrases last_cdata_pos end_of_phrase)
-    )
-    |||
-    (* but phrases can also be surrounded with square brackets *)
-    (
-      (* XXX: this makes code about 4x faster *)
-      (*current_pos >>= fun last_cdata_pos ->
-      p_char '[' >>>
-      phrases last_cdata_pos (p_char ']' >>> return ())*)
-      p_char '[' >>>
-      current_pos >>= fun _pos ->
-      phrases (_pos-1) (p_char ']' >>> return ())
-    )
+    begin_of_phrase beg_of_line (
+      current_pos >>= fun last_cdata_pos ->
+      phrase end_of_phrase >>= fun r ->
+      return (r, last_cdata_pos))
+  )
+  |||
+  (* but phrases can also be surrounded with square brackets *)
+  (
+    (* XXX: this makes code about 4x faster *)
+    (*current_pos >>= fun last_cdata_pos ->
+    p_char '[' >>>
+    phrases last_cdata_pos (p_char ']' >>> return ())*)
+    p_char '[' >>>
+    current_pos >>= fun _pos ->
+    phrase (p_char ']' >>> return ()) >>= fun r ->
+    return (r, (_pos-1))
+  )
+
+(* Hyprlinks can't contain another hyperlinks.
+ * Therefore, there are two functions for parsing phrases —
+ * one without hyperlinks... *)
+let rec phrases_except_hyperlinks end_of_phrase =
+  (* opened modifier should not be before whitespace *)
+  let opened_modifier m =
+    m >>= fun r -> check_current p_not_whitespace >>> return r in
+  (* and closed modifier also should not be after whitespace *)
+  let closed_modifier m =
+    check_prev p_not_whitespace >>> m >>> end_of_phrase in
+  (* there are general definition of simple phrases *)
+  let sp modifier =
+    opened_modifier modifier >>= fun (f, cm) ->
+    try_attrs (fun a ->
+    (*check_current p_not_whitespace >>>*)
+    current_pos >>= fun beg_of_line ->
+    (* FIXME *)
+    let p_c = closed_modifier cm in
+    collect_phrases_with
+      (phrase_surrounding
+        (end_of_phrase ||| (dont_jump p_c >>> return ()))
+        beg_of_line
+        all_phrases)
+      p_c >>= fun (line, _) ->
+    return (f (a, line))) in
+  (* remember that __ and ** must be first than _ and * *)
+  (* simple_phrase (p_str "__") (fun x -> Italic      x) |||
+     simple_phrase (p_char '_') (fun x -> Emphasis    x) |||
+     simple_phrase (p_str "**") (fun x -> Bold        x) |||
+     simple_phrase (p_char '*') (fun x -> Strong      x) |||
+     simple_phrase (p_str "??") (fun x -> Citation    x) |||
+     simple_phrase (p_char '-') (fun x -> Deleted     x) |||
+     simple_phrase (p_char '+') (fun x -> Inserted    x) |||
+     simple_phrase (p_char '^') (fun x -> Superscript x) |||
+     simple_phrase (p_char '~') (fun x -> Subscript   x) |||
+     simple_phrase (p_char '%') (fun x -> Span        x) |||
+     simple_phrase (p_char '@') (fun x -> Code        x) |||*)
+  sp (p_str "__" >>> return ((fun x -> Italic      x), p_str "__")) |||
+  sp (p_str "**" >>> return ((fun x -> Bold        x), p_str "**")) |||
+  sp (p_pred2 (function
+    | '_' -> Some (((fun x -> Emphasis    x), p_char '_'))
+    | '*' -> Some (((fun x -> Strong      x), p_char '*'))
+    | '-' -> Some (((fun x -> Deleted     x), p_char '-'))
+    | '+' -> Some (((fun x -> Inserted    x), p_char '+'))
+    | '^' -> Some (((fun x -> Superscript x), p_char '^'))
+    | '~' -> Some (((fun x -> Subscript   x), p_char '~'))
+    | '%' -> Some (((fun x -> Span        x), p_char '%'))
+    | _ -> None)) |||
+  sp (p_str "??" >>> return ((fun x -> Citation    x), p_str "??")) |||
+  (* and there are not too simple phrases *)
+  (* code *)
+  (
+    opened_modifier (p_char '@') >>>
+    try_attrs (fun a ->
+    p_str_until (closed_modifier (p_char '@')) >>= fun s ->
+    return (Code (a, s)))
+  ) |||
+  (* image *)
+  (
+    (* ...:http://komar.bitcheese.net *)
+    let link_opt =
+      (p_char ':' >>>
+        p_until (p_not_whitespace) end_of_phrase >>= fun (url, _) ->
+        return (Some url)) |||
+      (end_of_phrase >>> return None) in
+    (* ...(title)! *)
+    let end_with_title =
+      p_char '(' >>>
+      p_str_until (p_str ")!") >>= fun title ->
+      link_opt >>= fun link_opt ->
+      return (title, link_opt) in
+    (* ...! *)
+    let end_with_no_title =
+      p_char '!' >>>
+      link_opt in
+
+    p_char '!' >>>
+    img_opts >>= fun (attrs, float) ->
+    p_until p_not_whitespace (
+      (end_with_title >>= fun (title, link_opt) -> return (Some title, link_opt)) |||
+      (end_with_no_title >>= fun link_opt -> return (None, link_opt))
+    ) >>= fun (src, (title_opt, link_opt)) ->
+
+    let r =
+      let image = Image (attrs, float, src, title_opt) in
+      match link_opt with
+      | Some url -> Link (([], [image]), None, url)
+      | None -> image in
+    return r
+  ) ||| (
+  (* acronym *)
+    p_until
+      (p_pred (fun c -> c >= 'A' && c <= 'Z'))
+      (p_char '(') >>= fun (acr, _) ->
+    p_string_not_empty acr >>>
+    p_str_until (p_char ')' >>> end_of_phrase) >>= fun desc ->
+    (*p_str_until (closed_modifier (p_char ')')) >>= fun desc ->*)
+    return (Acronym (acr, desc))
+  )
+
+(* ... and one with them. *)
+and all_phrases end_of_phrase =
+  (phrases_except_hyperlinks end_of_phrase) |||
+  (* hyperlink *)
+  (
+    (* ...:http://komar.bitcheese.net *)
+    let url =
+      p_char ':' >>>
+      p_until (p_not_whitespace) end_of_phrase >>= fun (url, _) -> return url in
+    (* ...(title)'' *)
+    let end_with_title =
+      p_char '(' >>>
+      (*p_str_until (check_prev p_not_whitespace >>> p_str ")\"") >>= fun title ->*)
+      p_str_until (p_str ")\"") >>= fun title ->
+      url >>= fun url ->
+      return (title, url) in
+    (* ...'' *)
+    let end_with_no_title =
+      (*check_prev p_not_whitespace >>>*)
+      p_char '"' >>> url in
+
+    p_char '"' >>>
+    (* XXX: hm *)
+    check_current p_not_whitespace >>>
+    try_attrs (fun a ->
+    current_pos >>= fun beg_of_line ->
+    collect_phrases_with
+      (phrase_surrounding
+        (end_of_phrase ||| dont_jump ((end_with_title >>> return ()) ||| (end_with_no_title >>> return ())))
+        beg_of_line
+        phrases_except_hyperlinks)
+      (
+        (end_with_title >>= fun (title, url) -> return (Some title, url)) |||
+        (end_with_no_title >>= fun url -> return (None, url))
+      ) >>= fun (line, (title_opt, url)) ->
+
+    let r = Link ((a, line), title_opt, url) in
+    return r)
   )
 
 let line (s, pos) =
-  (collect_phrases_with (phrase pos) p_end >>= fun (line, _) ->
+  (collect_phrases_with (phrase_surrounding end_of_phrase pos all_phrases) p_end >>= fun (line, _) ->
   return line) (s, pos)
 
 let line_of_string s =
@@ -525,14 +526,15 @@ let of_stream stream =
           | Some s ->
               (collect_phrases_with
                 (* FIXME *)
-                (phrase ~end_of_phrase:(
-                  end_of_phrase |||
+                (phrase_surrounding
+                  (end_of_phrase |||
                   (* FIXME *)
                   (* check if it works with |(@code@)| *)
                   dont_jump (
                     p_many p_punct >>>
                     p_char '|' >>> return ()))
-                  0)
+                  0
+                  all_phrases)
                 (
                   (p_char '|' >>> return true) |||
                   (p_end >>> return false)
@@ -554,11 +556,12 @@ let of_stream stream =
         (current_pos >>= fun beg_of_line ->
         collect_phrases_with
           (* FIXME *)
-          (phrase ~end_of_phrase:(
-            end_of_phrase |||
+          (phrase_surrounding
+            (end_of_phrase |||
             (* FIXME *)
             dont_jump (p_many p_punct >>> p_char '|' >>> return ()))
-            beg_of_line)
+            beg_of_line
+            all_phrases)
           (
             (p_char '|' >>> return true) |||
             (p_end >>> return false)

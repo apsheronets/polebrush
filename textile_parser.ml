@@ -298,10 +298,13 @@ let rec phrase ?(end_of_phrase=end_of_phrase) beg_of_line =
       check_current p_not_whitespace >>>
       try_attrs (fun a ->
       current_pos >>= fun beg_of_line ->
-      collect_phrases_with (phrases_except_hyperlinks beg_of_line end_of_phrase) (
-        (end_with_title >>= fun (title, url) -> return (Some title, url)) |||
-        (end_with_no_title >>= fun url -> return (None, url))
-      ) >>= fun (line, (title_opt, url)) ->
+      collect_phrases_with
+        (phrases_except_hyperlinks beg_of_line
+          (end_of_phrase ||| dont_jump ((end_with_title >>> return ()) ||| (end_with_no_title >>> return ()))))
+        (
+          (end_with_title >>= fun (title, url) -> return (Some title, url)) |||
+          (end_with_no_title >>= fun url -> return (None, url))
+        ) >>= fun (line, (title_opt, url)) ->
 
       let r = Link ((a, line), title_opt, url) in
       return (r, last_cdata_pos))

@@ -32,7 +32,8 @@ let of_block ?(escape=true) block =
       |  c  -> Buffer.add_char buf c in
     String.iter f s;
     Buffer.contents buf in
-  let esc_cdata = if escape then esc else (fun s -> s) in
+  let dont_esc s = s in
+  let esc_cdata = if escape then esc else dont_esc in
 
   let parse_attr = function
     | Class s    -> sprintf "class=\"%s\"" (esc s)
@@ -88,8 +89,8 @@ let of_block ?(escape=true) block =
   let parse_lines lines =
     String.concat "<br />" (List.map parse_line lines) in
 
-  let to_lines strings =
-    String.concat "\n" (List.map esc strings) in
+  let to_lines esc_opt strings =
+    String.concat "\n" (List.map esc_opt strings) in
 
   let parse_talign = function
     | Some talign ->
@@ -182,13 +183,13 @@ let of_block ?(escape=true) block =
   | Blockcode (opts, strings) ->
       let popts = po opts in
       sprintf "<pre%s class=\"blockcode\"><code>%s</code></pre>"
-        popts (to_lines strings)
+        popts (to_lines esc strings)
   | Pre (opts, strings) ->
       sprintf "<pre%s>%s</pre>"
-        (po opts) (to_lines strings)
+        (po opts) (to_lines esc strings)
   | Notextile (opts, strings) ->
       sprintf "<div%s>%s</div>"
-        (po opts) (to_lines strings)
+        (po opts) (to_lines dont_esc strings)
   | Numlist  elements ->
       parse_list (sprintf "<ol>%s</ol>") elements
   | Bulllist elements ->

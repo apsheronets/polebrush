@@ -63,6 +63,7 @@ let xhtml_of_block =
     | Subscript   (a,l) -> {{ [ <sub    (pa a)>(pl l) ] }}
     | Span        (a,l) -> {{ [ <span   (pa a)>(pl l) ] }}
     | Code        (a,s) -> {{ [ <code   (pa a)>(utf s) ] }}
+    | Notextile      s  -> {{ (utf s) }}
     | Acronym (a, b) ->
         {{ [ <acronym title=(utf b)>(utf a) ] }}
     | Image (a, float, src, alt) ->
@@ -217,7 +218,7 @@ let xhtml_of_block =
           <code>(parse_strings strings)] }}
     | Pre (opts, strings) ->
         {{ <pre (po opts)>(parse_strings strings) }}
-    | Notextile (opts, strings) ->
+    | Blocknott (opts, strings) ->
         {{ <div (po opts)>(parse_strings strings) }}
     | Numlist  elements ->
         parse_list (fun lis -> {{ <ol>lis }}) elements

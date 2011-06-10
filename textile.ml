@@ -39,6 +39,7 @@ type phrase =
   | Subscript   of (attr list * phrase list) (* ~ *)
   | Span        of (attr list * phrase list) (* % *)
   | Code        of (attr list * string)      (* @ *)
+  | Notextile   of string                    (* == *)
   | Acronym of string * string               (* ABC(Always Be Closing *)
   | Image of attr list * img_float option
       * string * string option (* !imgsrc(alt)! *)
@@ -81,7 +82,7 @@ type block =
   | Paragraph  of (options * line list)     (* p. *)
   | Blockcode  of (options * string list)   (* bc. *)
   | Pre        of (options * string list)   (* pre. *)
-  | Notextile  of (options * string list)   (* notextile. *)
+  | Blocknott  of (options * string list)   (* notextile. *)
   | Numlist    of element list              (* # *)
   | Bulllist   of element list              (* * *)
   | Table      of (tableoptions * row list) (* |t|a|b| *)

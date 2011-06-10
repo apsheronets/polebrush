@@ -33,7 +33,7 @@ let of_block ?(escape=true) block =
     String.iter f s;
     Buffer.contents buf in
   let dont_esc s = s in
-  let esc_cdata = if escape then esc else dont_esc in
+  let esc_opt = if escape then esc else dont_esc in
 
   let parse_attr = function
     | Class s    -> sprintf "class=\"%s\"" (esc s)
@@ -54,7 +54,7 @@ let of_block ?(escape=true) block =
   let rec parse_phrase =
     let p = sprintf in
     let pl = parse_line in function
-    | CData str -> (esc_cdata str)
+    | CData str -> (esc_opt str)
     | Strong      (a,l) -> p "<strong%s>%s</strong>" (pa a) (pl l)
     | Italic      (a,l) -> p "<i%s>%s</i>" (pa a) (pl l)
     | Bold        (a,l) -> p "<b%s>%s</b>" (pa a) (pl l)
@@ -66,8 +66,9 @@ let of_block ?(escape=true) block =
     | Subscript   (a,l) -> p "<sub%s>%s</sub>" (pa a) (pl l)
     | Span        (a,l) -> p "<span%s>%s</span>" (pa a) (pl l)
     | Code        (a,s) -> p "<code%s>%s</code>" (pa a) (esc s)
+    | Notextile      s  -> p "%s" (dont_esc s)
     | Acronym (a, b) ->
-        p "<acronym title=\"%s\">%s</acronym>" (esc b) (esc_cdata a)
+        p "<acronym title=\"%s\">%s</acronym>" (esc b) (esc_opt a)
     | Image (a, float, src, alt) ->
         (let alt = match alt with
         | Some s -> p "alt=\"%s\"" (esc s)
@@ -187,7 +188,7 @@ let of_block ?(escape=true) block =
   | Pre (opts, strings) ->
       sprintf "<pre%s>%s</pre>"
         (po opts) (to_lines esc strings)
-  | Notextile (opts, strings) ->
+  | Blocknott (opts, strings) ->
       sprintf "<div%s>%s</div>"
         (po opts) (to_lines dont_esc strings)
   | Numlist  elements ->

@@ -262,6 +262,12 @@ let rec phrases_except_hyperlinks end_of_phrase =
     p_str_until (closed_modifier (p_char '@')) >>= fun s ->
     return (Code (a, s)))
   ) |||
+  (* notextile *)
+  (
+    opened_modifier (p_str "==") >>>
+    p_str_until (closed_modifier (p_str "==")) >>= fun s ->
+    return (Notextile s)
+  ) |||
   (* image *)
   (
     (* ...:http://komar.bitcheese.net *)
@@ -406,7 +412,7 @@ let block_type =
     return (`Textblock (`Footnote i))) |||
   (p_str "bc"  >>> return (`Textblock `Blockcode)) |||
   (p_str "pre" >>> return (`Textblock `Pre)) |||
-  (p_str "notextile" >>> return (`Textblock `Notextile)) |||
+  (p_str "notextile" >>> return (`Textblock `Blocknott)) |||
   (p_char 'p'  >>> return (`Textblock `Paragraph)) |||
   (p_str "table" >>> return `Table)
 
@@ -624,7 +630,7 @@ let of_stream stream =
             | `Footnote n -> lines   (fun x -> Footnote (n, (opts, x)))
             | `Blockcode  -> strings (fun x -> Blockcode    (opts, x))
             | `Pre        -> strings (fun x -> Pre          (opts, x))
-            | `Notextile  -> strings (fun x -> Notextile    (opts, x))
+            | `Blocknott  -> strings (fun x -> Blocknott    (opts, x))
             | `Paragraph  -> lines   (fun x -> Paragraph    (opts, x)))
         | `Table topts ->
             (get_extra_rows >>= function

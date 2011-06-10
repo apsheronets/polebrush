@@ -132,6 +132,7 @@ type block =
   | Paragraph  of (options * line list)     (** p. *)
   | Blockcode  of (options * string list)   (** bc. *)
   | Pre        of (options * string list)   (** pre. *)
+  | Notextile  of (options * string list)   (** notextile. *)
   | Numlist    of element list              (** # *)
   | Bulllist   of element list              (** * *)
   | Table      of (tableoptions * row list) (** |t|a|b| *)

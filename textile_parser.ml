@@ -221,7 +221,6 @@ let rec phrases_except_hyperlinks end_of_phrase =
   let sp modifier =
     opened_modifier modifier >>= fun (f, cm) ->
     try_attrs (fun a ->
-    (*check_current p_not_whitespace >>>*)
     current_pos >>= fun from ->
     (* FIXME *)
     let until = closed_modifier cm in
@@ -407,6 +406,7 @@ let block_type =
     return (`Textblock (`Footnote i))) |||
   (p_str "bc"  >>> return (`Textblock `Blockcode)) |||
   (p_str "pre" >>> return (`Textblock `Pre)) |||
+  (p_str "notextile" >>> return (`Textblock `Notextile)) |||
   (p_char 'p'  >>> return (`Textblock `Paragraph)) |||
   (p_str "table" >>> return `Table)
 
@@ -624,6 +624,7 @@ let of_stream stream =
             | `Footnote n -> lines   (fun x -> Footnote (n, (opts, x)))
             | `Blockcode  -> strings (fun x -> Blockcode    (opts, x))
             | `Pre        -> strings (fun x -> Pre          (opts, x))
+            | `Notextile  -> strings (fun x -> Notextile    (opts, x))
             | `Paragraph  -> lines   (fun x -> Paragraph    (opts, x)))
         | `Table topts ->
             (get_extra_rows >>= function

@@ -217,6 +217,8 @@ let xhtml_of_block =
           <code>(parse_strings strings)] }}
     | Pre (opts, strings) ->
         {{ <pre (po opts)>(parse_strings strings) }}
+    | Notextile (opts, strings) ->
+        {{ <div (po opts)>(parse_strings strings) }}
     | Numlist  elements ->
         parse_list (fun lis -> {{ <ol>lis }}) elements
     | Bulllist elements ->

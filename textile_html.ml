@@ -186,6 +186,9 @@ let of_block ?(escape=true) block =
   | Pre (opts, strings) ->
       sprintf "<pre%s>%s</pre>"
         (po opts) (to_lines strings)
+  | Notextile (opts, strings) ->
+      sprintf "<div%s>%s</div>"
+        (po opts) (to_lines strings)
   | Numlist  elements ->
       parse_list (sprintf "<ol>%s</ol>") elements
   | Bulllist elements ->

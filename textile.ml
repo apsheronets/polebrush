@@ -75,16 +75,16 @@ type row =
 type element =
   int * line
 type block =
-  | Header     of int * (options * line list) (** h1. *)
-  | Blockquote of (options * line list)       (** bq. *)
-  | Footnote   of int * (options * line list) (** fnn. *)
-  | Paragraph  of (options * line list)     (** p. *)
-  | Blockcode  of (options * string list)   (** bc. *)
-  | Pre        of (options * string list)   (** pre. *)
-  (* FIXME: why options? *)
-  | Numlist    of element list              (** # *)
-  | Bulllist   of element list              (** * *)
-  | Table      of (tableoptions * row list) (** |t|a|b| *)
+  | Header     of int * (options * line list) (* h1. *)
+  | Blockquote of (options * line list)       (* bq. *)
+  | Footnote   of int * (options * line list) (* fnn. *)
+  | Paragraph  of (options * line list)     (* p. *)
+  | Blockcode  of (options * string list)   (* bc. *)
+  | Pre        of (options * string list)   (* pre. *)
+  | Notextile  of (options * string list)   (* notextile. *)
+  | Numlist    of element list              (* # *)
+  | Bulllist   of element list              (* * *)
+  | Table      of (tableoptions * row list) (* |t|a|b| *)
 
 
 let rec string_of_line line =

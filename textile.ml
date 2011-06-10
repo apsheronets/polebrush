@@ -108,6 +108,8 @@ let rec string_of_line line =
         | Acronym (s, _)
         | Code    (_, s) ->
             add s
+        | Notextile s -> (* TODO: whoops, what we have to do? *)
+            add s
         | Image _ -> ()
         | Link ((_, l), _, _) ->
             add (string_of_line l));

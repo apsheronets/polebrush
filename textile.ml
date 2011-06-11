@@ -113,7 +113,9 @@ let rec string_of_line line =
             add s
         | Image _ -> ()
         | Link ((_, l), _, _) ->
-            add (string_of_line l));
+            add (string_of_line l)
+        | Reference i ->
+            Printf.bprintf buf "[%d]" i);
         loop t
     | [] -> Buffer.contents buf in
   loop line

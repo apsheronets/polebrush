@@ -77,8 +77,10 @@ let xhtml_of_block =
         {{ [ <img ((pa a) ++ {src=(utf src)} ++ alt ++ float)>[] ] }}
     | Link _        -> raise (Invalid_textile "unexpected link")
     | Reference i ->
-        let href = utf (sprintf "#fn%d" i) in
-        {{ [<sup class="footnote">[<a href="#fn%d">href]] }}
+        let t = utf (sprintf "%d" i) in
+        let fn_link = utf (sprintf "#fn%d" i) in
+        let ref_id  = utf (sprintf "ref%d" i) in
+        {{ [<sup class="footnote">[<a id=ref_id href=fn_link>t]] }}
 
   and parse_phrase = function
     | Link ((attrs, l), title, url) ->
@@ -212,8 +214,11 @@ let xhtml_of_block =
     | Blockquote (opts, lines) ->
         {{ <blockquote (po opts)>[<p (po opts)>(parse_lines lines)] }}
     | Footnote (i, (opts, lines)) ->
+        let ref_url = utf (sprintf "#ref%d" i) in
+        let arrow = utf "↑" in
         {{ <p ({id={:"fn" ^ string_of_int i:} class="footnote"}
-          ++ (po opts))>[<sup>(utf (string_of_int i)) ' ' !(parse_lines lines)] }}
+          ++ (po opts))>[<sup>(utf (string_of_int i))
+          ' ' <a href=ref_url>arrow ' ' !(parse_lines lines)] }}
     | Paragraph (opts, lines) ->
         {{ <p (po opts)>(parse_lines lines) }}
     | Blockcode (opts, strings) ->

@@ -84,7 +84,7 @@ let of_block ?(escape=true) block =
           | None -> "" in
         p "<a%s href=\"%s\"%s>%s</a>" title (esc url) (pa attrs) (pl l))
     | Reference i ->
-        p "<sup class=\"footnote\"><a href=\"#fn%d\">%d</a></sup>" i i
+        p "<sup class=\"footnote\"><a id=\"ref%d\" href=\"#fn%d\">%d</a></sup>" i i i
 
   and parse_line line =
     String.concat "" (List.map parse_phrase line) in
@@ -179,8 +179,8 @@ let of_block ?(escape=true) block =
       sprintf "<blockquote%s><p%s>%s</p></blockquote>"
         popts popts (pl lines)
   | Footnote (i, (opts, lines)) ->
-      sprintf "<p id=\"fn%d\" class=\"footnote\"%s><sup>%d</sup> %s</p>"
-        i (po opts) i (pl lines)
+      sprintf "<p id=\"fn%d\" class=\"footnote\"%s><sup>%d</sup> <a href=\"#ref%d\">↑</a> %s</p>"
+        i (po opts) i i (pl lines)
   | Paragraph (opts, lines) ->
       sprintf "<p%s>%s</p>" (po opts) (pl lines)
   | Blockcode (opts, strings) ->

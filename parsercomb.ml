@@ -146,7 +146,7 @@ let p_digit = p_pred isdigit
 
 let mkInt v x = v * 10 + int_of_char x - 48
 
-let p_unsign_int = p_manyf p_digit mkInt 0
+let p_unsign_int = p_plusf p_digit mkInt 0
 
 let p_int (s, pos) =
   try

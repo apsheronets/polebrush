@@ -179,8 +179,8 @@ let of_block ?(escape=true) block =
       sprintf "<blockquote%s><p%s>%s</p></blockquote>"
         popts popts (pl lines)
   | Footnote (i, (opts, lines)) ->
-      sprintf "<p id=\"fn%d\" class=\"footnote\"%s>%s</p>"
-        i (po opts) (pl lines)
+      sprintf "<p id=\"fn%d\" class=\"footnote\"%s><sup>%d</sup> %s</p>"
+        i (po opts) i (pl lines)
   | Paragraph (opts, lines) ->
       sprintf "<p%s>%s</p>" (po opts) (pl lines)
   | Blockcode (opts, strings) ->

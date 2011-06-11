@@ -197,10 +197,10 @@ let phrase_surrounding end_of_phrase beg_of_line phrase =
 (* separetely from other stuff — references *)
 let reference beg_of_line =
   (p_pos beg_of_line |||
-    (p_not_whitespace >>> current_pos)) >>= fun last_cdata_pos ->
+    (p_not_whitespace >>> current_pos)) >>= fun bracket ->
   p_unsign_int >>= fun i ->
   p_char ']' >>> end_of_phrase >>>
-  return ((Reference i), last_cdata_pos)
+  return ((Reference i), bracket-1)
 
 (** high level function which made for collecting phrases
     @param what phrases to parse; everything else is CData

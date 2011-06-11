@@ -213,7 +213,7 @@ let xhtml_of_block =
         {{ <blockquote (po opts)>[<p (po opts)>(parse_lines lines)] }}
     | Footnote (i, (opts, lines)) ->
         {{ <p ({id={:"fn" ^ string_of_int i:} class="footnote"}
-          ++ (po opts))>(parse_lines lines) }}
+          ++ (po opts))>[<sup>(utf (string_of_int i)) ' ' !(parse_lines lines)] }}
     | Paragraph (opts, lines) ->
         {{ <p (po opts)>(parse_lines lines) }}
     | Blockcode (opts, strings) ->

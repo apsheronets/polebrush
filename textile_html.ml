@@ -83,6 +83,8 @@ let of_block ?(escape=true) block =
           | Some s -> sprintf " title=%S" (esc s)
           | None -> "" in
         p "<a%s href=\"%s\"%s>%s</a>" title (esc url) (pa attrs) (pl l))
+    | Reference i ->
+        p "<sup class=\"footnote\"><a href=\"#fn%d\">%d</a></sup>" i i
 
   and parse_line line =
     String.concat "" (List.map parse_phrase line) in

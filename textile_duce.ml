@@ -76,6 +76,9 @@ let xhtml_of_block =
         | None -> {{ {} }} in
         {{ [ <img ((pa a) ++ {src=(utf src)} ++ alt ++ float)>[] ] }}
     | Link _        -> raise (Invalid_textile "unexpected link")
+    | Reference i ->
+        let href = utf (sprintf "#fn%d" i) in
+        {{ [<sup class="footnote">[<a href="#fn%d">href]] }}
 
   and parse_phrase = function
     | Link ((attrs, l), title, url) ->

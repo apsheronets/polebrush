@@ -45,6 +45,7 @@ type phrase =
       * string * string option (* !imgsrc(alt)! *)
   | Link of (attr list * phrase list) *
       string option * string (* "linktext(title)":url *)
+  | Reference of int (* [1] *)
 type line =
   phrase list
 type talign =

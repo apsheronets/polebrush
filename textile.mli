@@ -85,6 +85,7 @@ type phrase =
       string * string option (** !imgsrc(alt)! *)
   | Link of (attr list * phrase list) *
       string option * string (** "linktext(title)":url *)
+  | Reference of int         (** [1] *)
 
 (** One line of text. It terminates by line break character. *)
 type line =

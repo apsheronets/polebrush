@@ -42,7 +42,7 @@ let p_char c = p_pred ((=) c)
 let current_pos (s, pos) = Parsed (pos, (s, pos))
 
 (** parsed if current position = p; doesn't jump *)
-let p_pos p (s, pos) = if p = pos then return () (s, pos) else fail (s, pos)
+let p_pos p (s, pos) = if p = pos then return p (s, pos) else fail (s, pos)
 
 (** sets position *)
 let set_pos p (s, _) = Parsed ((), (s, p))

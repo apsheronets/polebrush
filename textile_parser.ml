@@ -194,17 +194,25 @@ let phrase_surrounding end_of_phrase beg_of_line phrase =
     return (r, (_pos-1))
   )
 
-(** high level function which made for collecting phrases like [what]
+(* separetely from other stuff — references *)
+let reference beg_of_line =
+  (p_pos beg_of_line |||
+    (p_not_whitespace >>> current_pos)) >>= fun last_cdata_pos ->
+  p_unsign_int >>= fun i ->
+  p_char ']' >>> end_of_phrase >>>
+  return ((Reference i), last_cdata_pos)
+
+(** high level function which made for collecting phrases
     @param what phrases to parse; everything else is CData
     @param ended_with what can be at the end of phrase
     @param from where to start
     @param until end when this parser matched *)
 let collect ~what ~ended_with ~from ~until =
   collect_phrases_with
-    (phrase_surrounding
+    ((phrase_surrounding
       ended_with
       from
-      what)
+      what) ||| reference from)
     until
 
 (* Hyprlinks can't contain another hyperlinks.

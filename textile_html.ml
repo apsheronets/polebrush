@@ -37,10 +37,10 @@ let of_block ?(escape_cdata=false) ?(escape_nott=false) block =
   let print_nott  = if escape_nott  then esc else dont_esc in
 
   let parse_attr = function
-    | Class s    -> sprintf "class=\"%s\"" (esc s)
-    | Id s       -> sprintf "id=\"%s\"" (esc s)
-    | Style s    -> sprintf "style=\"%s\"" (esc s)
-    | Language s -> sprintf "lang=\"%s\"" (esc s) in
+    | Class    s -> sprintf "class=\"%s\"" (esc s)
+    | Id       s -> sprintf "id=\"%s\""    (esc s)
+    | Style    s -> sprintf "style=\"%s\"" (esc s)
+    | Language s -> sprintf "lang=\"%s\""  (esc s) in
 
   let parse_attrs = function
     | [] -> ""

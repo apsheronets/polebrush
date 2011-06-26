@@ -37,10 +37,10 @@ exception Invalid_textile of string
 let xhtml_of_block =
 
   let parse_attr = function
-    | Class str    -> {{ { class=(utf str) } }}
-    | Id str       -> {{ { id=(utf str)    } }}
-    | Style str    -> {{ { style=(utf str) } }}
-    | Language str -> {{ { lang=(utf str)  } }} in
+    | Class    s -> {{ { class=(utf s) } }}
+    | Id       s -> {{ {    id=(utf s) } }}
+    | Style    s -> {{ { style=(utf s) } }}
+    | Language s -> {{ {  lang=(utf s) } }} in
 
   let parse_attrs =
     List.fold_left

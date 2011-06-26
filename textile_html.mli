@@ -21,10 +21,10 @@
 exception Invalid_textile of string
 
 (** Function will not escape special HTML chars if [escape] is false. Default is true. *)
-val of_stream : ?escape:bool -> Textile.block Stream.t -> string Stream.t
+val of_stream : ?escape_cdata:bool -> ?escape_nott:bool -> Textile.block Stream.t -> string Stream.t
 
 (** The same, but takes one textile block. *)
-val of_block : ?escape:bool -> Textile.block -> string
+val of_block  : ?escape_cdata:bool -> ?escape_nott:bool -> Textile.block -> string
 
 (** Example of use:
 

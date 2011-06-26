@@ -8,8 +8,8 @@ Features :
 * translating textile to an AST
 * translating the AST to XHTML
 * translating the AST to OCamlduce's XHTML (ocsigen support)
-* 'itextile' command which takes textile and returns XHTMl
-* 'itextile_duce' - the same but maked with OCamlduce
+* 'textiler' command which takes textile and returns XHTML
+* 'textiler_duce' - the same but maked with OCamlduce
 
 Building :
 ----------
@@ -36,13 +36,13 @@ $ make doc
 
 And watch the doc/ directory.
 
-You can also compile itextile utility:
+You can also compile textiler utility:
 
-$ make itextile
+$ make textiler
 
 And test it:
 
-$ echo 'h1. Hello *world*!' | ./itextile
+$ echo 'h1. Hello *world*!' | ./textiler
 <h1>Hello <strong>world</strong>!</h1>
 
 Installation :

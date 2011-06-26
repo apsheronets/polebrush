@@ -95,26 +95,25 @@ textile_duce.cmxa: textile_duce.cmx
 textile_duce.cmxs: textile_duce.cmx textile_duce.cmxa
 	$(DUCEOPT) -a -o $@ textile_duce.cmx
 
-itextile.cmx: textile.cmxa textile_html.cmxa itextile.ml
+textiler.cmx: textile.cmxa textile_html.cmxa textiler.ml
 	$(CAMLOPT) -c $^
-itextile: textile.cmxa textile_html.cmxa itextile.cmx
+textiler: textile.cmxa textile_html.cmxa textiler.cmx
 	$(CAMLOPT) -linkpkg -o $@ $^
-itextile.cmo: textile.cma textile_html.cma itextile.ml
+textiler.cmo: textile.cma textile_html.cma textiler.ml
 	$(CAMLC) -c $^
-itextile.byte: textile.cma textile_html.cma itextile.cmo
+textiler.byte: textile.cma textile_html.cma textiler.cmo
 	$(CAMLC) -linkpkg -o $@ $^
 
 xhtmlpretty_duce.cmi: xhtmlpretty_duce.mli
 	$(DUCEC) -c $<
 xhtmlpretty_duce.cmx: xhtmlpretty_duce.ml
 	$(DUCEOPT) -c $<
-itextile_duce.cmx: native itextile_duce.ml xhtmlpretty_duce.cmx
-	$(DUCEOPT) -I ./ -package textile.duce -c itextile_duce.ml
-itextile_duce: xhtmlpretty_duce.cmx itextile_duce.cmx
+textiler_duce.cmx: native textiler_duce.ml xhtmlpretty_duce.cmx
+	$(DUCEOPT) -I ./ -package textile.duce -c textiler_duce.ml
+textiler_duce: xhtmlpretty_duce.cmx textiler_duce.cmx
 	$(DUCEOPT) -I ./ -package textile.duce -linkpkg -o $@ $^
 
-tests: itextile itextile_duce
-	make -C tests/
+tests: textiler textiler_duce
 
 install:
 	ocamlfind install $(LIBNAME) META *.cmi *.cma *.cmxa *.cmxs *.a
@@ -148,8 +147,7 @@ clean:
 	-rm -f .depend
 	-rm -rf doc
 	-rm -f META META.duce
-	-rm -f itextile itextile.byte itextile_duce
-	make -C tests/ clean
+	-rm -f textiler textiler.byte textiler_duce
 
 depend: .depend
 

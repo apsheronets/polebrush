@@ -20,7 +20,7 @@ open Textile
 
 exception Invalid_textile of string
 
-let of_block ?(escape=true) block =
+let of_block ?(escape_cdata=false) ?(escape_nott=false) block =
   let esc s =
     let strlen = String.length s in
     let buf = Buffer.create strlen in
@@ -33,7 +33,8 @@ let of_block ?(escape=true) block =
     String.iter f s;
     Buffer.contents buf in
   let dont_esc s = s in
-  let esc_opt = if escape then esc else dont_esc in
+  let print_cdata = if escape_cdata then esc else dont_esc in
+  let print_nott  = if escape_nott  then esc else dont_esc in
 
   let parse_attr = function
     | Class s    -> sprintf "class=\"%s\"" (esc s)
@@ -54,7 +55,7 @@ let of_block ?(escape=true) block =
   let rec parse_phrase =
     let p = sprintf in
     let pl = parse_line in function
-    | CData str -> (esc_opt str)
+    | CData str -> (print_cdata str)
     | Strong      (a,l) -> p "<strong%s>%s</strong>" (pa a) (pl l)
     | Italic      (a,l) -> p "<i%s>%s</i>" (pa a) (pl l)
     | Bold        (a,l) -> p "<b%s>%s</b>" (pa a) (pl l)
@@ -66,9 +67,9 @@ let of_block ?(escape=true) block =
     | Subscript   (a,l) -> p "<sub%s>%s</sub>" (pa a) (pl l)
     | Span        (a,l) -> p "<span%s>%s</span>" (pa a) (pl l)
     | Code        (a,s) -> p "<code%s>%s</code>" (pa a) (esc s)
-    | Notextile      s  -> p "%s" (dont_esc s)
+    | Notextile      s  -> p "%s" (print_nott s)
     | Acronym (a, b) ->
-        p "<acronym title=\"%s\">%s</acronym>" (esc b) (esc_opt a)
+        p "<acronym title=\"%s\">%s</acronym>" (esc b) (print_cdata a)
     | Image (a, float, src, alt) ->
         (let alt = match alt with
         | Some s -> p "alt=\"%s\"" (esc s)
@@ -92,8 +93,8 @@ let of_block ?(escape=true) block =
   let parse_lines lines =
     String.concat "<br />" (List.map parse_line lines) in
 
-  let to_lines esc_opt strings =
-    String.concat "\n" (List.map esc_opt strings) in
+  let to_lines print strings =
+    String.concat "\n" (List.map print strings) in
 
   let parse_talign = function
     | Some talign ->
@@ -192,7 +193,7 @@ let of_block ?(escape=true) block =
         (po opts) (to_lines esc strings)
   | Blocknott (opts, strings) ->
       sprintf "<div%s>%s</div>"
-        (po opts) (to_lines dont_esc strings)
+        (po opts) (to_lines print_nott strings)
   | Numlist  elements ->
       parse_list (sprintf "<ol>%s</ol>") elements
   | Bulllist elements ->
@@ -200,10 +201,10 @@ let of_block ?(escape=true) block =
   | Table (topts, rows) ->
       sprintf "<table%s>%s</table>" (pt topts) (parse_rows rows)
 
-let of_stream ?(escape=true) stream =
+let of_stream ?(escape_cdata=false) ?(escape_nott=false) stream =
   let next _ =
     try
-      Some (of_block ~escape (Stream.next stream))
+      Some (of_block ~escape_cdata ~escape_nott (Stream.next stream))
     with Stream.Failure -> None in
   Stream.from next
 

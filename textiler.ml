@@ -37,7 +37,7 @@ let () =
     "-escape-html", Arg.Set escape_html, "Escape html among markup";
     "-escape-nott", Arg.Set escape_nott, "Escape html in 'notextile.' and '== =='";
     "-get-header",  Arg.Set get_header, "Only try to get header of page";
-    "-print-header", Arg.Set print_header, "Additionally write 'Header: ...\\n' or 'No header\\n' before parsed text";
+    "-print-header", Arg.Set print_header, "Additionally write 'Header: ...\\n\n' before parsed text";
   ] in
   Arg.parse l (fun _ -> raise (Arg.Bad help)) help;
 
@@ -54,9 +54,12 @@ let () =
   ) else (
     if !print_header
     then (
-      match get_header_from_textile textile with
-      | Some h -> print_string "Header: "; print_endline h
-      | None -> print_endline "no header");
+      print_string "Header: ";
+      (match get_header_from_textile textile with
+      | Some h -> print_string h
+      | None -> ());
+      print_newline ();
+      print_newline ());
     let xhtml =
       Textile_html.of_stream
         ~escape_cdata:(!escape_html)

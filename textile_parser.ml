@@ -20,6 +20,7 @@ open Textile
 open Parsercomb
 
 let (>>) f g = g f
+let ($) a b = fun x -> a (b x)
 
 
 (* some defaults *)
@@ -67,27 +68,32 @@ let check_prev p (s, pos) =
 let check_current p (s, pos) =
   (p >>= fun r -> fun _ -> Parsed (r, (s, pos))) (s, pos)
 
-let p_class =
+(* parses all kinds of declarations include (classname#id1#id2) *)
+let class_and_ids =
   (* ((())) must be for padding, not for class (( or something else *)
   p_char '(' >>>
-  p_until (p_pred ((<>) '(')) (p_char ')') >>= fun (classname, _) ->
-  p_string_not_empty classname
-let id       = p_str "(#" >>> p_str_until (p_char ')') >>= p_string_not_empty
+  p_until (p_pred ((<>) '(')) (p_char ')') >>=
+  fun (s, _) ->
+    match String.nsplit s "#" with
+    | [] -> fail
+    | "" :: ids ->
+        return (List.map (fun x -> Id x) ids)
+    | classname :: ids ->
+        return ((Class classname) :: (List.map (fun x -> Id x) ids))
 let style    = p_char '{' >>> p_str_until (p_char '}') >>= p_string_not_empty
 let language = p_char '[' >>> p_str_until (p_char ']') >>= p_string_not_empty
 
-let attr =
-  (id       >>= fun s -> return (Id s))    ||| (* must be first *)
-  (p_class  >>= fun s -> return (Class s)) |||
-  (style    >>= fun s -> return (Style s)) |||
-  (language >>= fun s -> return (Language s))
+let attr_decl =
+  class_and_ids |||
+  (style    >>= fun s -> return [Style    s]) |||
+  (language >>= fun s -> return [Language s])
 
 (*let attrs =
   p_manyf attr (fun acc x -> x::acc) [] in*)
 
 (* this is for correct parsing strings like _(hi)_ *)
 let try_attrs f =
-  (p_seq attr >>= f) |||
+  (p_seq attr_decl >>= (return $ List.flatten) >>= f) |||
   (*(p_plusf attr (fun acc x -> x::acc) [] >>= f) |||*)
   (f [])
 
@@ -98,10 +104,10 @@ let img_float =
 (* attributes + floating *)
 let img_opts =
   let add_opt (attrs, float_opt) = function
-    | `Attr a -> (a::attrs, float_opt)
+    | `Attr a -> (a @ attrs, float_opt)
     | `Img_float f -> (attrs, Some f) in
   p_manyf
-    ((attr >>= fun a -> return (`Attr a)) ||| (img_float >>= fun f -> return (`Img_float f)))
+    ((attr_decl >>= fun a -> return (`Attr a)) ||| (img_float >>= fun f -> return (`Img_float f)))
     add_opt
     ([], None)
 
@@ -378,14 +384,14 @@ let align =
   (p_char '>' >>> return Right)
 
 let option =
-  (attr  >>= fun x -> return (`Attr x))  |||
-  (align >>= fun x -> return (`Align x)) |||
+  (attr_decl >>= fun x -> return (`Attr  x)) |||
+  (align     >>= fun x -> return (`Align x)) |||
   (p_char '(' >>> return `Left_padding)  |||
   (p_char ')' >>> return `Right_padding)
 
 (* should we fix it? *)
 let add_option (attrs, talign, (lp, rp)) = function
-  | `Attr a -> (a::attrs, talign, (lp, rp))
+  | `Attr a -> (a @ attrs, talign, (lp, rp))
     (* may be we need to add warning or something else
      * when align is already set *)
   | `Align a -> (attrs, Some a, (lp, rp))

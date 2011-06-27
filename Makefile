@@ -37,16 +37,18 @@ DUCECMA  = polebrush_duce.cma
 DUCECMXA = polebrush_duce.cmxa
 DUCECMXS = polebrush_duce.cmxs
 
-all: byte native shared
+all: libs tools
+tools: polebrush polebrush.byte
+libs: bytelib nativelib sharedlib
 
 ifeq "$(DUCE)" "yes"
-byte:          polebrush.cma  polebrush_html.cma  polebrush_duce.cma  META
-native:        polebrush.cmxa polebrush_html.cmxa polebrush_duce.cmxa META
-shared: native polebrush.cmxs polebrush_html.cmxs polebrush_duce.cmxs META
+bytelib:             polebrush.cma  polebrush_html.cma  polebrush_duce.cma  META
+nativelib:           polebrush.cmxa polebrush_html.cmxa polebrush_duce.cmxa META
+sharedlib: nativelib polebrush.cmxs polebrush_html.cmxs polebrush_duce.cmxs META
 else
-byte:          polebrush.cma  polebrush_html.cma  META
-native:        polebrush.cmxa polebrush_html.cmxa META
-shared: native polebrush.cmxs polebrush_html.cmxs META
+bytelib:             polebrush.cma  polebrush_html.cma  META
+nativelib:           polebrush.cmxa polebrush_html.cmxa META
+sharedlib: nativelib polebrush.cmxs polebrush_html.cmxs META
 endif
 
 META: META.in META.duce.in VERSION
@@ -115,10 +117,10 @@ polebrush_duce: xhtmlpretty_duce.cmx polebrush.cmxa polebrush_duce.cmxa polebrus
 
 tests: polebrush_cmd polebrush_duce_cmd
 
-install:
+install-lib:
 	ocamlfind install $(LIBNAME) META *.cmi *.cma *.cmxa *.cmxs *.a
 
-uninstall:
+uninstall-lib:
 	ocamlfind remove $(LIBNAME)
 
 .SUFFIXES:

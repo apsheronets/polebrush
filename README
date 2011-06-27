@@ -1,15 +1,5 @@
-Polebrush markup language support for OCaml
-========================================
-
-Features :
-----------
-
-* currently it supports most of polebrush syntax
-* translating polebrush to an AST
-* translating the AST to XHTML
-* translating the AST to OCamlduce's XHTML (ocsigen support)
-* 'polebrush' command which takes polebrush and returns XHTML
-* 'polebrush_duce' - the same but maked with OCamlduce
+Polebrush markup language parser
+================================
 
 Building :
 ----------
@@ -28,27 +18,27 @@ Optionaly (for OCamlduce support):
 
 Then run:
 
-$ make
-
-If you need api docs then run:
-
-$ make doc
-
-And watch the doc/ directory.
-
-You can also compile polebrush utility:
-
-$ make polebrush
+  make
 
 And test it:
 
-$ echo 'h1. Hello *world*!' | ./polebrush
-<h1>Hello <strong>world</strong>!</h1>
+  echo 'h1. Hello *world*!' | ./polebrush
+  <h1>Hello <strong>world</strong>!</h1>
+
+If you are OCaml programmer and want to generate documentation, run:
+
+  make doc
 
 Installation :
 --------------
 
-$ sudo make install
+If you want to install OCaml library, run:
+
+  make install-lib
+
+If you want to uninstall OCaml library, run:
+
+  make uninstall-lib
 
 See also
 --------

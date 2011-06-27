@@ -1,4 +1,17 @@
-make clean
-make
-make doc # if you want documentation
-sudo make install
+
+Just run:
+
+  make
+
+If you are OCaml programmer and want to generate documentation, run:
+
+  make doc
+
+If you want to install OCaml library, run:
+
+  make install-lib
+
+If you want to uninstall OCaml library, run:
+
+  make uninstall-lib
+

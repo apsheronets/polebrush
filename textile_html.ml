@@ -72,7 +72,7 @@ let of_block ?(escape_cdata=false) ?(escape_nott=false) block =
         p "<acronym title=\"%s\">%s</acronym>" (esc b) (print_cdata a)
     | Image (a, float, src, alt) ->
         (let alt = match alt with
-        | Some s -> p "alt=\"%s\"" (esc s)
+        | Some s -> let s = esc s in p "alt=\"%s\" title=\"%s\"" s s
         | None -> "alt=\"\"" in
         let float = match float with
         | Some Float_left  -> " style=\"float: left\""

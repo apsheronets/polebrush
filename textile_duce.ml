@@ -68,7 +68,7 @@ let xhtml_of_block =
         {{ [ <acronym title=(utf b)>(utf a) ] }}
     | Image (a, float, src, alt) ->
         let alt = match alt with
-        | Some s -> {{ {alt=(utf s)} }}
+        | Some s -> let s = utf s in {{ {alt=s title=s} }}
         | None -> {{ {alt=""} }} in
         let float = match float with
         | Some Float_left  -> {{ {style={:"float: left" :}} }}

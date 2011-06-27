@@ -1,17 +1,17 @@
-(* This file is part of textile-ocaml.
+(* This file is part of polebrush.
  *
- * textile-ocaml is free software: you can redistribute it and/or modify
+ * polebrush is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * textile-ocaml is distributed in the hope that it will be useful,
+ * polebrush is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with textile-ocaml.  If not, see <http://www.gnu.org/licenses/>.
+ * along with polebrush.  If not, see <http://www.gnu.org/licenses/>.
  *
  * Copyright 2011 Alexander Markov *)
 
@@ -39,7 +39,7 @@ type phrase =
   | Subscript   of (attr list * phrase list) (* ~ *)
   | Span        of (attr list * phrase list) (* % *)
   | Code        of (attr list * string)      (* @ *)
-  | Notextile   of string                    (* == *)
+  | Nomarkup    of string                    (* == *)
   | Acronym of string * string               (* ABC(Always Be Closing *)
   | Image of attr list * img_float option
       * string * string option (* !imgsrc(alt)! *)
@@ -77,16 +77,16 @@ type row =
 type element =
   int * line
 type block =
-  | Header     of int * (options * line list) (* h1. *)
-  | Blockquote of (options * line list)       (* bq. *)
-  | Footnote   of int * (options * line list) (* fnn. *)
-  | Paragraph  of (options * line list)     (* p. *)
-  | Blockcode  of (options * string list)   (* bc. *)
-  | Pre        of (options * string list)   (* pre. *)
-  | Blocknott  of (options * string list)   (* notextile. *)
-  | Numlist    of element list              (* # *)
-  | Bulllist   of element list              (* * *)
-  | Table      of (tableoptions * row list) (* |t|a|b| *)
+  | Header        of int * (options * line list) (* h1. *)
+  | Blockquote    of (options * line list)       (* bq. *)
+  | Footnote      of int * (options * line list) (* fnn. *)
+  | Paragraph     of (options * line list)     (* p. *)
+  | Blockcode     of (options * string list)   (* bc. *)
+  | Pre           of (options * string list)   (* pre. *)
+  | Blocknomarkup of (options * string list)   (* nomarkup. *)
+  | Numlist       of element list              (* # *)
+  | Bulllist      of element list              (* * *)
+  | Table         of (tableoptions * row list) (* |t|a|b| *)
 
 
 let rec string_of_line line =
@@ -109,7 +109,7 @@ let rec string_of_line line =
         | Acronym (s, _)
         | Code    (_, s) ->
             add s
-        | Notextile s -> (* TODO: whoops, what we have to do? *)
+        | Nomarkup s -> (* TODO: whoops, what we have to do? *)
             add s
         | Image _ -> ()
         | Link ((_, l), _, _) ->

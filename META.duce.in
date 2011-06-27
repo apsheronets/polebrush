@@ -1,7 +1,7 @@
 
 package "_NAME_" (
   description = "ocamlduce XHTML support for ocsigen"
-  requires = "_REQUIRES_,textile"
+  requires = "_REQUIRES_,polebrush"
   archive(byte)   = "_BYTE_"
   archive(native) = "_NATIVE_"
   archive(plugin,byte)   = "_BYTE_"

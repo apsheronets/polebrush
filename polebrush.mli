@@ -1,29 +1,26 @@
-(* This file is part of textile-ocaml.
+(* This file is part of polebrush.
  *
- * textile-ocaml is free software: you can redistribute it and/or modify
+ * polebrush is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * textile-ocaml is distributed in the hope that it will be useful,
+ * polebrush is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with textile-ocaml.  If not, see <http://www.gnu.org/licenses/>.
+ * along with polebrush.  If not, see <http://www.gnu.org/licenses/>.
  *
  * Copyright 2011 Alexander Markov *)
 
-(** Textile markup language syntax tree
+(** Polebrush markup language syntax tree
 
-  @see
-  <http://thresholdstate.com/articles/4312/the-textile-reference-manual>
-  the official textile reference manual
   @author Alexander Markov apsheronets\@gmail.com
 *)
 
-(** {2 Textile syntax tree} *)
+(** {2 Polebrush syntax tree} *)
 
 (** {3 Options} *)
 
@@ -79,7 +76,7 @@ type phrase =
   | Subscript   of (attr list * phrase list) (** ~ *)
   | Span        of (attr list * phrase list) (** % *)
   | Code        of (attr list * string)      (** @ *)
-  | Notextile   of string                    (** == *)
+  | Nomarkup    of string                    (** == *)
   | Acronym of string * string               (** ABC(Always Be Closing) *)
   | Image of attr list * img_float option *
       string * string option (** !imgsrc(alt)! *)
@@ -102,7 +99,7 @@ type element =
 type tableoptions =
   options * valign option
 
-(** In textile symbol _ defines a cell as a table header. Otherwise
+(** In markup symbol _ defines a cell as a table header. Otherwise
 it's a regular data cell. *)
 type celltype =
   | Data (** | <...> | *)
@@ -128,16 +125,16 @@ type row =
 
 (** Extended blocks parse automaticly so there is no difference for you between normal and extended blocks. *)
 type block =
-  | Header     of int * (options * line list) (** h1. *)
-  | Blockquote of (options * line list)       (** bq. *)
-  | Footnote   of int * (options * line list) (** fnn. *)
-  | Paragraph  of (options * line list)     (** p. *)
-  | Blockcode  of (options * string list)   (** bc. *)
-  | Pre        of (options * string list)   (** pre. *)
-  | Blocknott  of (options * string list)   (** notextile. *)
-  | Numlist    of element list              (** # *)
-  | Bulllist   of element list              (** * *)
-  | Table      of (tableoptions * row list) (** |t|a|b| *)
+  | Header         of int * (options * line list) (** h1. *)
+  | Blockquote     of (options * line list)       (** bq. *)
+  | Footnote       of int * (options * line list) (** fnn. *)
+  | Paragraph      of (options * line list)     (** p. *)
+  | Blockcode      of (options * string list)   (** bc. *)
+  | Pre            of (options * string list)   (** pre. *)
+  | Blocknomarkup  of (options * string list)   (** nomarkup. *)
+  | Numlist        of element list              (** # *)
+  | Bulllist       of element list              (** * *)
+  | Table          of (tableoptions * row list) (** |t|a|b| *)
 
 (** {2 Translation} *)
 

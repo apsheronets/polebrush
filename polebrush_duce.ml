@@ -1,22 +1,22 @@
-(* This file is part of textile-ocaml.
+(* This file is part of polebrush.
  *
- * textile-ocaml is free software: you can redistribute it and/or modify
+ * polebrush is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * textile-ocaml is distributed in the hope that it will be useful,
+ * polebrush is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with textile-ocaml.  If not, see <http://www.gnu.org/licenses/>.
+ * along with polebrush.  If not, see <http://www.gnu.org/licenses/>.
  *
  * Copyright 2011 Alexander Markov *)
 
 open Printf
-open Textile
+open Polebrush
 open Xhtmltypes_duce
 
 (* Ocamlduce's crutches *)
@@ -32,7 +32,7 @@ let xmlfold f1 f2 l =
       fold f2 (f1 h) t
     with Failure _ -> raise (Failure "xmlfold")
 
-exception Invalid_textile of string
+exception Invalid_polebrush of string
 
 let xhtml_of_block =
 
@@ -63,7 +63,7 @@ let xhtml_of_block =
     | Subscript   (a,l) -> {{ [ <sub    (pa a)>(pl l) ] }}
     | Span        (a,l) -> {{ [ <span   (pa a)>(pl l) ] }}
     | Code        (a,s) -> {{ [ <code   (pa a)>(utf s) ] }}
-    | Notextile      s  -> {{ (utf s) }}
+    | Nomarkup       s  -> {{ (utf s) }}
     | Acronym (a, b) ->
         {{ [ <acronym title=(utf b)>(utf a) ] }}
     | Image (a, float, src, alt) ->
@@ -75,7 +75,7 @@ let xhtml_of_block =
         | Some Float_right -> {{ {style={:"float: right":}} }}
         | None -> {{ {} }} in
         {{ [ <img ((pa a) ++ {src=(utf src)} ++ alt ++ float)>[] ] }}
-    | Link _        -> raise (Invalid_textile "unexpected link")
+    | Link _        -> raise (Invalid_polebrush "unexpected link")
     | Reference i ->
         let t = utf (sprintf "%d" i) in
         let fn_link = utf (sprintf "#fn%d" i) in
@@ -177,7 +177,7 @@ let xhtml_of_block =
         filled_lvl
         (prev:flows)
         (acc:{{[li*]}})
-        : Textile.element list -> ( {{ [li+] }} * Textile.element list) =
+        : Polebrush.element list -> ( {{ [li+] }} * Polebrush.element list) =
       function
       | (lvl, line) :: t when lvl = filled_lvl ->
           fill_lvl filled_lvl (parse_line line) {{ acc @ [<li>prev] }} t
@@ -190,16 +190,16 @@ let xhtml_of_block =
       | [] as l ->
           {{ acc @ [<li>prev] }}, l
       | (lvl, _) :: _ ->
-          raise (Invalid_textile (
+          raise (Invalid_polebrush (
             sprintf "strange bull- or numlist: filled level is %d, but the next element has level %d"
               filled_lvl lvl)) in
     function
-    | [] -> raise (Invalid_textile "empty bull- or numlist")
+    | [] -> raise (Invalid_polebrush "empty bull- or numlist")
     | (1, line)::t ->
         let first = parse_line line in
         let lis, _ = fill_lvl 1 first {{ [] }} t in
         f lis
-    | _ -> raise (Invalid_textile "strange bull- or numlist") in
+    | _ -> raise (Invalid_polebrush "strange bull- or numlist") in
 
   function
     | Header (i, (opts, lines)) ->
@@ -210,7 +210,7 @@ let xhtml_of_block =
         | 4 -> {{ <h4 (po opts)>(parse_lines lines) }}
         | 5 -> {{ <h5 (po opts)>(parse_lines lines) }}
         | 6 -> {{ <h6 (po opts)>(parse_lines lines) }}
-        | _ -> raise (Invalid_textile "incorrect header level"))
+        | _ -> raise (Invalid_polebrush "incorrect header level"))
     | Blockquote (opts, lines) ->
         {{ <blockquote (po opts)>[<p (po opts)>(parse_lines lines)] }}
     | Footnote (i, (opts, lines)) ->
@@ -226,7 +226,7 @@ let xhtml_of_block =
           <code>(parse_strings strings)] }}
     | Pre (opts, strings) ->
         {{ <pre (po opts)>(parse_strings strings) }}
-    | Blocknott (opts, strings) ->
+    | Blocknomarkup (opts, strings) ->
         {{ <div (po opts)>(parse_strings strings) }}
     | Numlist  elements ->
         parse_list (fun lis -> {{ <ol>lis }}) elements
@@ -235,7 +235,7 @@ let xhtml_of_block =
     | Table (topts, rows) ->
         {{ <table (pt topts)>(parse_rows rows) }}
 
-let xhtml_of_textile stream =
+let xhtml_of_polebrush stream =
   let rec loop (acc : blocks) =
     try
       let block = Stream.next stream in

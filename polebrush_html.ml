@@ -1,26 +1,26 @@
-(* This file is part of textile-ocaml.
+(* This file is part of polebrush.
  *
- * textile-ocaml is free software: you can redistribute it and/or modify
+ * polebrush is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * textile-ocaml is distributed in the hope that it will be useful,
+ * polebrush is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with textile-ocaml.  If not, see <http://www.gnu.org/licenses/>.
+ * along with polebrush.  If not, see <http://www.gnu.org/licenses/>.
  *
  * Copyright 2011 Alexander Markov *)
 
 open Printf
-open Textile
+open Polebrush
 
-exception Invalid_textile of string
+exception Invalid_polebrush of string
 
-let of_block ?(escape_cdata=false) ?(escape_nott=false) block =
+let of_block ?(escape_cdata=false) ?(escape_nomarkup=false) block =
   let esc s =
     let strlen = String.length s in
     let buf = Buffer.create strlen in
@@ -33,8 +33,8 @@ let of_block ?(escape_cdata=false) ?(escape_nott=false) block =
     String.iter f s;
     Buffer.contents buf in
   let dont_esc s = s in
-  let print_cdata = if escape_cdata then esc else dont_esc in
-  let print_nott  = if escape_nott  then esc else dont_esc in
+  let print_cdata    = if escape_cdata    then esc else dont_esc in
+  let print_nomarkup = if escape_nomarkup then esc else dont_esc in
 
   let parse_attr = function
     | Class    s -> sprintf "class=\"%s\"" (esc s)
@@ -67,7 +67,7 @@ let of_block ?(escape_cdata=false) ?(escape_nott=false) block =
     | Subscript   (a,l) -> p "<sub%s>%s</sub>" (pa a) (pl l)
     | Span        (a,l) -> p "<span%s>%s</span>" (pa a) (pl l)
     | Code        (a,s) -> p "<code%s>%s</code>" (pa a) (esc s)
-    | Notextile      s  -> p "%s" (print_nott s)
+    | Nomarkup       s  -> p "%s" (print_nomarkup s)
     | Acronym (a, b) ->
         p "<acronym title=\"%s\">%s</acronym>" (esc b) (print_cdata a)
     | Image (a, float, src, alt) ->
@@ -142,7 +142,7 @@ let of_block ?(escape_cdata=false) ?(escape_nott=false) block =
       let topts = pt topts in
       sprintf "<%s%s>%s</%s>" tag topts (parse_lines lines) tag) cells) in
 
-  let parse_rows (rows : Textile.row list) =
+  let parse_rows (rows : Polebrush.row list) =
     String.concat "" (List.map (fun (topts, cells) ->
       sprintf "<tr%s>%s</tr>" (pt topts) (parse_cells cells)) rows) in
 
@@ -160,16 +160,16 @@ let of_block ?(escape_cdata=false) ?(escape_nott=false) block =
       | [] as l ->
           sprintf "%s<li>%s</li>" acc prev, l
       | (lvl, _) :: _ ->
-          raise (Invalid_textile (
+          raise (Invalid_polebrush (
             sprintf "strange bull- or numlist: filled level is %d, but the next element has level %d"
               filled_lvl lvl)) in
     function
-    | [] -> raise (Invalid_textile "empty bull- or numlist")
+    | [] -> raise (Invalid_polebrush "empty bull- or numlist")
     | (1, line)::t ->
         let first = parse_line line in
         let lis, _ = fill_lvl 1 first "" t in
         f lis
-    | _ -> raise (Invalid_textile "strange bull- or numlist") in
+    | _ -> raise (Invalid_polebrush "strange bull- or numlist") in
 
   let pl = parse_lines in
   match block with
@@ -191,9 +191,9 @@ let of_block ?(escape_cdata=false) ?(escape_nott=false) block =
   | Pre (opts, strings) ->
       sprintf "<pre%s>%s</pre>"
         (po opts) (to_lines esc strings)
-  | Blocknott (opts, strings) ->
+  | Blocknomarkup (opts, strings) ->
       sprintf "<div%s>%s</div>"
-        (po opts) (to_lines print_nott strings)
+        (po opts) (to_lines print_nomarkup strings)
   | Numlist  elements ->
       parse_list (sprintf "<ol>%s</ol>") elements
   | Bulllist elements ->
@@ -201,10 +201,10 @@ let of_block ?(escape_cdata=false) ?(escape_nott=false) block =
   | Table (topts, rows) ->
       sprintf "<table%s>%s</table>" (pt topts) (parse_rows rows)
 
-let of_stream ?(escape_cdata=false) ?(escape_nott=false) stream =
+let of_stream ?(escape_cdata=false) ?(escape_nomarkup=false) stream =
   let next _ =
     try
-      Some (of_block ~escape_cdata ~escape_nott (Stream.next stream))
+      Some (of_block ~escape_cdata ~escape_nomarkup (Stream.next stream))
     with Stream.Failure -> None in
   Stream.from next
 

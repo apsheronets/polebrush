@@ -1,22 +1,22 @@
-(* This file is part of textile-ocaml.
+(* This file is part of polebrush.
  *
- * textile-ocaml is free software: you can redistribute it and/or modify
+ * polebrush is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * textile-ocaml is distributed in the hope that it will be useful,
+ * polebrush is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with textile-ocaml.  If not, see <http://www.gnu.org/licenses/>.
+ * along with polebrush.  If not, see <http://www.gnu.org/licenses/>.
  *
  * Copyright 2011 Alexander Markov *)
 
 open ExtLib
-open Textile
+open Polebrush
 open Parsercomb
 
 let (>>) f g = g f
@@ -276,11 +276,11 @@ let rec phrases_except_hyperlinks end_of_phrase =
     p_str_until (closed_modifier (p_char '@')) >>= fun s ->
     return (Code (a, s)))
   ) |||
-  (* notextile *)
+  (* nomarkup *)
   (
     opened_modifier (p_str "==") >>>
     p_str_until (closed_modifier (p_str "==")) >>= fun s ->
-    return (Notextile s)
+    return (Nomarkup s)
   ) |||
   (* image *)
   (
@@ -426,7 +426,9 @@ let block_type =
     return (`Textblock (`Footnote i))) |||
   (p_str "bc"  >>> return (`Textblock `Blockcode)) |||
   (p_str "pre" >>> return (`Textblock `Pre)) |||
-  (p_str "notextile" >>> return (`Textblock `Blocknott)) |||
+  (* XXX: legacy code: must be removed *)
+  (p_str "no" >>> (p_str "textile" ||| p_str "markup") >>>
+    return (`Textblock `Blocknomarkup)) |||
   (p_char 'p'  >>> return (`Textblock `Paragraph)) |||
   (p_str "table" >>> return `Table)
 
@@ -639,13 +641,13 @@ let of_stream stream =
             let lines   f = get_lines   extended >>= fun r -> return (f r) in
             let strings f = get_strings extended >>= fun r -> return (f r) in
             (match bm with
-            | `Header lvl -> lines   (fun x -> Header (lvl, (opts, x)))
-            | `Blockquote -> lines   (fun x -> Blockquote   (opts, x))
-            | `Footnote n -> lines   (fun x -> Footnote (n, (opts, x)))
-            | `Blockcode  -> strings (fun x -> Blockcode    (opts, x))
-            | `Pre        -> strings (fun x -> Pre          (opts, x))
-            | `Blocknott  -> strings (fun x -> Blocknott    (opts, x))
-            | `Paragraph  -> lines   (fun x -> Paragraph    (opts, x)))
+            | `Header lvl    -> lines   (fun x -> Header (lvl,  (opts, x)))
+            | `Blockquote    -> lines   (fun x -> Blockquote    (opts, x))
+            | `Footnote n    -> lines   (fun x -> Footnote (n,  (opts, x)))
+            | `Blockcode     -> strings (fun x -> Blockcode     (opts, x))
+            | `Pre           -> strings (fun x -> Pre           (opts, x))
+            | `Blocknomarkup -> strings (fun x -> Blocknomarkup (opts, x))
+            | `Paragraph     -> lines   (fun x -> Paragraph     (opts, x)))
         | `Table topts ->
             (get_extra_rows >>= function
             | [] -> fail

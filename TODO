@@ -1,4 +1,6 @@
-* Replacing symbols to another, "much easer on the eye"
 * Making printers more customize, for example, to colorize code inside @code@
 * URL encoding
-* link declaration like "hobix":hobix [hobix]http://hobix.com
+* tables of contents
+* installation manual
+* usage manual
+* more tests

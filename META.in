@@ -1,6 +1,6 @@
 name = "_NAME_"
 version = "_VERSION_"
-description = "textile markup language support"
+description = "polebrush markup language support"
 requires = "_REQUIRES_"
 archive(byte)   = "_BYTE_"
 archive(native) = "_NATIVE_"
@@ -8,10 +8,10 @@ archive(plugin,byte)   = "_BYTE_"
 archive(plugin,native) = "_SHARED_"
 
 package "html" (
-  description = "facilities for converting textile into html"
+  description = "facilities for converting polebrush into html"
   requires = "_NAME_"
-  archive(byte)   = "textile_html.cma"
-  archive(native) = "textile_html.cmxa"
-  archive(plugin,byte)   = "textile_html.cma"
-  archive(plugin,native) = "textile_html.cmxs"
+  archive(byte)   = "polebrush_html.cma"
+  archive(native) = "polebrush_html.cmxa"
+  archive(plugin,byte)   = "polebrush_html.cma"
+  archive(plugin,native) = "polebrush_html.cmxs"
 )

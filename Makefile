@@ -2,18 +2,18 @@ ifndef DUCE
   DUCE := $(shell if [ `which ocamlduce` ]; then echo yes; else echo no; fi)
 endif
 
-LIBNAME = textile
+LIBNAME = polebrush
 VERSION := $(shell head -n 1 VERSION)
 
-TEXTILE = parsercomb.ml textile.ml
-HTML    = textile_html.ml
-DUCEF   = textile_duce.ml
+POLEBRUSH = parsercomb.ml polebrush.ml
+HTML      = polebrush_html.ml
+DUCEF     = polebrush_duce.ml
 
-CAMLSRC = parsercomb.ml textile.ml textile_parser.ml textile_html.ml
-DUCESRC = xhtmlpretty_duce.ml textile_duce.ml
+CAMLSRC = parsercomb.ml polebrush.ml polebrush_parser.ml polebrush_html.ml
+DUCESRC = xhtmlpretty_duce.ml polebrush_duce.ml polebrush_duce_cmd.ml
 
-DOCSRC = textile.ml textile_parser.ml textile_html.ml textile.mli textile_parser.mli textile_html.mli
-DUCEDOCSRC = $(DOCSRC) textile_duce.ml textile_duce.mli
+DOCSRC = polebrush.ml polebrush_parser.ml polebrush_html.ml polebrush.mli polebrush_parser.mli polebrush_html.mli
+DUCEDOCSRC = $(DOCSRC) polebrush_duce.ml polebrush_duce.mli
 
 PACKAGES = extlib
 DUCEPACKAGES = ocamlduce,ocsigen
@@ -30,23 +30,23 @@ CAMLOPT = ocamlfind ocamlopt $(LIB)
 CAMLDOC = ocamlfind ocamldoc -keep-code -colorize-code $(LIB)
 CAMLDEP = ocamlfind ocamldep
 
-CMA  = textile.cma
-CMXA = textile.cmxa
-CMXS = textile.cmxs
-DUCECMA  = textile_duce.cma
-DUCECMXA = textile_duce.cmxa
-DUCECMXS = textile_duce.cmxs
+CMA  = polebrush.cma
+CMXA = polebrush.cmxa
+CMXS = polebrush.cmxs
+DUCECMA  = polebrush_duce.cma
+DUCECMXA = polebrush_duce.cmxa
+DUCECMXS = polebrush_duce.cmxs
 
 all: byte native shared
 
 ifeq "$(DUCE)" "yes"
-byte:          textile.cma  textile_html.cma  textile_duce.cma  META
-native:        textile.cmxa textile_html.cmxa textile_duce.cmxa META
-shared: native textile.cmxs textile_html.cmxs textile_duce.cmxs META
+byte:          polebrush.cma  polebrush_html.cma  polebrush_duce.cma  META
+native:        polebrush.cmxa polebrush_html.cmxa polebrush_duce.cmxa META
+shared: native polebrush.cmxs polebrush_html.cmxs polebrush_duce.cmxs META
 else
-byte:          textile.cma  textile_html.cma  META
-native:        textile.cmxa textile_html.cmxa META
-shared: native textile.cmxs textile_html.cmxs META
+byte:          polebrush.cma  polebrush_html.cma  META
+native:        polebrush.cmxa polebrush_html.cmxa META
+shared: native polebrush.cmxs polebrush_html.cmxs META
 endif
 
 META: META.in META.duce.in VERSION
@@ -67,53 +67,53 @@ ifeq "$(DUCE)" "yes"
 	cat META.duce >> META
 endif
 
-textile.cma:  parsercomb.cmo textile.cmo textile_parser.cmo
+polebrush.cma:  parsercomb.cmo polebrush.cmo polebrush_parser.cmo
 	$(CAMLC) -a -o $@ $^
-textile.cmxa: parsercomb.cmx textile.cmx textile_parser.cmx
+polebrush.cmxa: parsercomb.cmx polebrush.cmx polebrush_parser.cmx
 	$(CAMLOPT) -a -o $@ $^
-textile.cmxs: parsercomb.cmx textile.cmx textile_parser.cmx textile.cmxa
-	$(CAMLOPT) -a -o $@ parsercomb.cmx textile.cmx textile_parser.cmx
+polebrush.cmxs: parsercomb.cmx polebrush.cmx polebrush_parser.cmx polebrush.cmxa
+	$(CAMLOPT) -a -o $@ parsercomb.cmx polebrush.cmx polebrush_parser.cmx
 
-textile_html.cma:  textile_html.cmo
+polebrush_html.cma:  polebrush_html.cmo
 	$(CAMLC) -a -o $@ $^
-textile_html.cmxa: textile_html.cmx
+polebrush_html.cmxa: polebrush_html.cmx
 	$(CAMLOPT) -a -o $@ $^
-textile_html.cmxs: textile_html.cmx textile_html.cmxa
-	$(CAMLOPT) -a -o $@ textile_html.cmx
+polebrush_html.cmxs: polebrush_html.cmx polebrush_html.cmxa
+	$(CAMLOPT) -a -o $@ polebrush_html.cmx
 
-textile_duce.cmo: textile_duce.ml
+polebrush_duce.cmo: polebrush_duce.ml
 	$(DUCEC) -c $<
-textile_duce.cmi: textile_duce.mli
+polebrush_duce.cmi: polebrush_duce.mli
 	$(DUCEC) -c $<
-textile_duce.cmx: textile_duce.ml
+polebrush_duce.cmx: polebrush_duce.ml
 	$(DUCEOPT) -c $<
 
-textile_duce.cma:  textile_duce.cmo
+polebrush_duce.cma:  polebrush_duce.cmo
 	$(DUCEC) -a -o $@ $^
-textile_duce.cmxa: textile_duce.cmx
+polebrush_duce.cmxa: polebrush_duce.cmx
 	$(DUCEOPT) -a -o $@ $^
-textile_duce.cmxs: textile_duce.cmx textile_duce.cmxa
-	$(DUCEOPT) -a -o $@ textile_duce.cmx
+polebrush_duce.cmxs: polebrush_duce.cmx polebrush_duce.cmxa
+	$(DUCEOPT) -a -o $@ polebrush_duce.cmx
 
-textiler.cmx: textile.cmxa textile_html.cmxa textiler.ml
+polebrush_cmd.cmx: polebrush.cmxa polebrush_html.cmxa polebrush_cmd.ml
 	$(CAMLOPT) -c $^
-textiler: textile.cmxa textile_html.cmxa textiler.cmx
+polebrush: polebrush.cmxa polebrush_html.cmxa polebrush_cmd.cmx
 	$(CAMLOPT) -linkpkg -o $@ $^
-textiler.cmo: textile.cma textile_html.cma textiler.ml
+polebrush_cmd.cmo: polebrush.cma polebrush_html.cma polebrush_cmd.ml
 	$(CAMLC) -c $^
-textiler.byte: textile.cma textile_html.cma textiler.cmo
+polebrush.byte: polebrush.cma polebrush_html.cma polebrush_cmd.cmo
 	$(CAMLC) -linkpkg -o $@ $^
 
 xhtmlpretty_duce.cmi: xhtmlpretty_duce.mli
 	$(DUCEC) -c $<
 xhtmlpretty_duce.cmx: xhtmlpretty_duce.ml
 	$(DUCEOPT) -c $<
-textiler_duce.cmx: native textiler_duce.ml xhtmlpretty_duce.cmx
-	$(DUCEOPT) -I ./ -package textile.duce -c textiler_duce.ml
-textiler_duce: xhtmlpretty_duce.cmx textiler_duce.cmx
-	$(DUCEOPT) -I ./ -package textile.duce -linkpkg -o $@ $^
+polebrush_duce_cmd.cmx: polebrush_duce_cmd.ml
+	$(DUCEOPT) -c $<
+polebrush_duce: xhtmlpretty_duce.cmx polebrush.cmxa polebrush_duce.cmxa polebrush_duce_cmd.cmx
+	$(DUCEOPT) -linkpkg -o $@ $^
 
-tests: textiler textiler_duce
+tests: polebrush_cmd polebrush_duce_cmd
 
 install:
 	ocamlfind install $(LIBNAME) META *.cmi *.cma *.cmxa *.cmxs *.a
@@ -147,7 +147,7 @@ clean:
 	-rm -f .depend
 	-rm -rf doc
 	-rm -f META META.duce
-	-rm -f textiler textiler.byte textiler_duce
+	-rm -f polebrush polebrush.byte polebrush_duce
 
 depend: .depend
 

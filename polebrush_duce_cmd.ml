@@ -1,27 +1,27 @@
-(* This file is part of textile-ocaml.
+(* This file is part of polebrush.
  *
- * textile-ocaml is free software: you can redistribute it and/or modify
+ * polebrush is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * textile-ocaml is distributed in the hope that it will be useful,
+ * polebrush is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with textile-ocaml.  If not, see <http://www.gnu.org/licenses/>.
+ * along with polebrush.  If not, see <http://www.gnu.org/licenses/>.
  *
  * Copyright 2011 Alexander Markov *)
 
 let text = Stream.from (fun _ -> try Some (read_line ())
   with End_of_file -> None)
 
-let textile = Textile_parser.of_stream text
+let polebrush = Polebrush_parser.of_stream text
 
 let xhtml = Stream.from (fun _ ->
-  try Some (Textile_duce.xhtml_of_block (Stream.next textile))
+  try Some (Polebrush_duce.xhtml_of_block (Stream.next polebrush))
   with Stream.Failure -> None)
 
 let print_xhtml =

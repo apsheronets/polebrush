@@ -1,0 +1,11 @@
+!{huita}src!
+!{huita}!
+
+"{huita}src":huita
+"{huita}":huita
+
+_(huita)_
+_(huita huita)_
+
+!{float:right}http://www.marshak.ru/images/pictures/05.jpg! Учеными
+"{float:right}http://www.marshak.ru/images/pictures/05.jpg":huita Учеными

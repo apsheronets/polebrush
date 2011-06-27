@@ -1,6 +1,8 @@
 #!/bin/sh
 
 prefix=`dirname $0`
+prefix=`readlink -f $prefix/../`
+
 textiler=$prefix/textiler
 textiler_duce=$prefix/textiler_duce
 

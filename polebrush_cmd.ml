@@ -37,7 +37,7 @@ let () =
     "-escape-html", Arg.Set escape_html, "Escape html among markup";
     "-escape-nomarkup", Arg.Set escape_nomarkup, "Escape html in 'nomarkup.' and '== =='";
     "-get-header",  Arg.Set get_header, "Only try to get header of page";
-    "-print-header", Arg.Set print_header, "Additionally write 'Header: ...\\n\n' before parsed text";
+    "-print-header", Arg.Set print_header, "Additionally write 'Header: ...\\n\\n' before parsed text";
   ] in
   Arg.parse l (fun _ -> raise (Arg.Bad help)) help;
 

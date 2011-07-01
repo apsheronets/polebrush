@@ -135,7 +135,7 @@ uninstall-lib:
 .ml.cmx:
 	$(CAMLOPT) -c $<
 
-doc: byte
+doc:
 	-mkdir -p doc
 ifeq "$(DUCE)" "yes"
 	$(DUCEDOC) -d doc -html $(DUCEDOCSRC)

@@ -17,7 +17,7 @@
 
 open ExtLib
 open Polebrush
-open Parsercomb
+open Polebrush_parsercomb
 
 let (>>) f g = g f
 let ($) a b = fun x -> a (b x)

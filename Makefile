@@ -5,11 +5,11 @@ endif
 LIBNAME = polebrush
 VERSION := $(shell head -n 1 VERSION)
 
-POLEBRUSH = parsercomb.ml polebrush.ml
+POLEBRUSH = polebrush_parsercomb.ml polebrush.ml polebrush_parser.ml
 HTML      = polebrush_html.ml
 DUCEF     = polebrush_duce.ml
 
-CAMLSRC = parsercomb.ml polebrush.ml polebrush_parser.ml polebrush_html.ml
+CAMLSRC = polebrush_parsercomb.ml polebrush.ml polebrush_parser.ml polebrush_html.ml
 DUCESRC = xhtmlpretty_duce.ml polebrush_duce.ml polebrush_duce_cmd.ml
 
 DOCSRC = polebrush.ml polebrush_parser.ml polebrush_html.ml polebrush.mli polebrush_parser.mli polebrush_html.mli
@@ -25,7 +25,7 @@ DUCEDOC = ocamlducefind ocamldoc -keep-code -colorize-code $(DUCELIB)
 DUCEDEP = ocamlducefind ocamldep
 
 LIB = -package $(PACKAGES)
-CAMLC   = ocamlfind ocamlc $(LIB)
+CAMLC   = ocamlfind ocamlc   $(LIB)
 CAMLOPT = ocamlfind ocamlopt $(LIB)
 CAMLDOC = ocamlfind ocamldoc -keep-code -colorize-code $(LIB)
 CAMLDEP = ocamlfind ocamldep
@@ -69,18 +69,18 @@ ifeq "$(DUCE)" "yes"
 	cat META.duce >> META
 endif
 
-polebrush.cma:  parsercomb.cmo polebrush.cmo polebrush_parser.cmo
+polebrush.cma:  $(POLEBRUSH:.ml=.cmo)
 	$(CAMLC) -a -o $@ $^
-polebrush.cmxa: parsercomb.cmx polebrush.cmx polebrush_parser.cmx
+polebrush.cmxa: $(POLEBRUSH:.ml=.cmx)
 	$(CAMLOPT) -a -o $@ $^
-polebrush.cmxs: parsercomb.cmx polebrush.cmx polebrush_parser.cmx polebrush.cmxa
-	$(CAMLOPT) -a -o $@ parsercomb.cmx polebrush.cmx polebrush_parser.cmx
+polebrush.cmxs: $(POLEBRUSH:.ml=.cmx) polebrush.cmxa
+	$(CAMLOPT) -a -o $@ $(POLEBRUSH:.ml=.cmx)
 
-polebrush_html.cma:  polebrush_html.cmo
+polebrush_html.cma:  $(HTML:.ml=.cmo)
 	$(CAMLC) -a -o $@ $^
-polebrush_html.cmxa: polebrush_html.cmx
+polebrush_html.cmxa: $(HTML:.ml=.cmx)
 	$(CAMLOPT) -a -o $@ $^
-polebrush_html.cmxs: polebrush_html.cmx polebrush_html.cmxa
+polebrush_html.cmxs: $(HTML:.ml=.cmx) polebrush_html.cmxa
 	$(CAMLOPT) -a -o $@ polebrush_html.cmx
 
 polebrush_duce.cmo: polebrush_duce.ml
@@ -90,12 +90,12 @@ polebrush_duce.cmi: polebrush_duce.mli
 polebrush_duce.cmx: polebrush_duce.ml
 	$(DUCEOPT) -c $<
 
-polebrush_duce.cma:  polebrush_duce.cmo
+polebrush_duce.cma:  $(DUCEF:.ml=.cmo)
 	$(DUCEC) -a -o $@ $^
-polebrush_duce.cmxa: polebrush_duce.cmx
+polebrush_duce.cmxa: $(DUCEF:.ml=.cmx)
 	$(DUCEOPT) -a -o $@ $^
-polebrush_duce.cmxs: polebrush_duce.cmx polebrush_duce.cmxa
-	$(DUCEOPT) -a -o $@ polebrush_duce.cmx
+polebrush_duce.cmxs: $(DUCEF:.ml=.cmx) polebrush_duce.cmxa
+	$(DUCEOPT) -a -o $@ $(DUCEF:.ml=.cmx)
 
 polebrush_cmd.cmx: polebrush.cmxa polebrush_html.cmxa polebrush_cmd.ml
 	$(CAMLOPT) -c $^

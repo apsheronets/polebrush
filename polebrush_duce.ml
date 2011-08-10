@@ -158,11 +158,20 @@ let xhtml_of_block =
 
   let parse_cells =
     xmlfold
-      (fun ((celltype, topts, cellspan), lines) ->
+      (fun ((celltype, topts, (colspan, rowspan)), lines) ->
+        let rowspan =
+          match rowspan with
+          | Some rowspan -> {{ {rowspan={:string_of_int rowspan:}} }}
+          | None -> {{ {} }} in
+        let colspan =
+          match colspan with
+          | Some colspan -> {{ {colspan={:string_of_int colspan:}} }}
+          | None -> {{ {} }} in
         let topts = pt topts in
+        let attrs = {{ colspan ++ rowspan ++ topts }} in
         match celltype with
-        | Data -> {{ [<td (topts)>(parse_lines lines)] }}
-        | Head -> {{ [<th (topts)>(parse_lines lines)] }})
+        | Data -> {{ [<td (attrs)>(parse_lines lines)] }}
+        | Head -> {{ [<th (attrs)>(parse_lines lines)] }})
       (fun (acc : {{ [(th|td)+] }} ) x ->
         {{ acc @ x }} ) in
 

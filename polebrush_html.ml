@@ -136,11 +136,22 @@ let of_block ?(escape_cdata=false) ?(escape_nomarkup=false) block =
   let pt = parse_tableoptions in
 
   let parse_cells (cells : cell list) =
-    String.concat "" (List.map (fun ((celltype, topts, cellspan), lines) ->
-      let tag = match celltype with
-      | Data -> "td" | Head -> "th" in
+    String.concat "" (List.map (fun ((celltype, topts, (colspan, rowspan)), lines) ->
+      let tag =
+        match celltype with
+        | Data -> "td"
+        | Head -> "th" in
+      let rowspan =
+        match rowspan with
+        | Some rowspan -> sprintf " rowspan=\"%d\"" rowspan
+        | None -> "" in
+      let colspan =
+        match colspan with
+        | Some colspan -> sprintf " colspan=\"%d\"" colspan
+        | None -> "" in
       let topts = pt topts in
-      sprintf "<%s%s>%s</%s>" tag topts (parse_lines lines) tag) cells) in
+      let attrs = String.concat "" [topts; rowspan; colspan] in
+      sprintf "<%s%s>%s</%s>" tag attrs (parse_lines lines) tag) cells) in
 
   let parse_rows (rows : Polebrush.row list) =
     String.concat "" (List.map (fun (topts, cells) ->

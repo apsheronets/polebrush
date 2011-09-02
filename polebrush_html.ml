@@ -71,14 +71,14 @@ let of_block ?(escape_cdata=false) ?(escape_nomarkup=false) block =
     | Acronym (a, b) ->
         p "<acronym title=\"%s\">%s</acronym>" (esc b) (print_cdata a)
     | Image (a, float, src, alt) ->
-        (let alt = match alt with
-        | Some s -> let s = esc s in p "alt=\"%s\" title=\"%s\"" s s
-        | None -> "alt=\"\"" in
+        (let alt, title = match alt with
+        | Some s -> let s = esc s in p "alt=\"%s\"" s, p " title=\"%s\"" s
+        | None -> "alt=\"\"", "" in
         let float = match float with
         | Some Float_left  -> " style=\"float: left\""
         | Some Float_right -> " style=\"float: right\""
         | None -> "" in
-        p "<img %s src=\"%s\"%s%s />" alt (esc src) (pa a) float)
+        p "<img %s%s src=\"%s\"%s%s />" alt float (esc src) (pa a) title)
     | Link ((attrs, l), title, url) ->
         (let title = match title with
           | Some s -> sprintf " title=%S" (esc s)

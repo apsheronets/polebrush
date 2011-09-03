@@ -87,6 +87,7 @@ type block =
   | Numlist       of element list              (* # *)
   | Bulllist      of element list              (* * *)
   | Table         of (tableoptions * row list) (* |t|a|b| *)
+  | ToC           of options                   (* toc. *)
 
 
 let rec string_of_line line =
@@ -109,8 +110,7 @@ let rec string_of_line line =
         | Acronym (s, _)
         | Code    (_, s) ->
             add s
-        | Nomarkup s -> (* TODO: whoops, what we have to do? *)
-            add s
+        | Nomarkup _ (* TODO: whoops, what we have to do? *)
         | Image _ -> ()
         | Link ((_, l), _, _) ->
             add (string_of_line l)

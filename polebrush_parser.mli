@@ -19,5 +19,9 @@
 
 val line_of_string : string -> Polebrush.line
 
+val next_block : string Stream.t -> Polebrush.block option
+
 val of_stream : string Stream.t -> Polebrush.block Stream.t
+
+val enum : string Stream.t -> Polebrush.block Enum.t
 

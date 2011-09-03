@@ -34,7 +34,7 @@ let xmlfold f1 f2 l =
 
 exception Invalid_polebrush of string
 
-let xhtml_of_block =
+let xhtml_of_block ?toc =
 
   let parse_attr = function
     | Class    s -> {{ { class=(utf s) } }}
@@ -213,41 +213,81 @@ let xhtml_of_block =
   function
     | Header (i, (opts, lines)) ->
         (match i with
-        | 1 -> {{ <h1 (po opts)>(parse_lines lines) }}
-        | 2 -> {{ <h2 (po opts)>(parse_lines lines) }}
-        | 3 -> {{ <h3 (po opts)>(parse_lines lines) }}
-        | 4 -> {{ <h4 (po opts)>(parse_lines lines) }}
-        | 5 -> {{ <h5 (po opts)>(parse_lines lines) }}
-        | 6 -> {{ <h6 (po opts)>(parse_lines lines) }}
+        | 1 -> {{ [<h1 (po opts)>(parse_lines lines)] }}
+        | 2 -> {{ [<h2 (po opts)>(parse_lines lines)] }}
+        | 3 -> {{ [<h3 (po opts)>(parse_lines lines)] }}
+        | 4 -> {{ [<h4 (po opts)>(parse_lines lines)] }}
+        | 5 -> {{ [<h5 (po opts)>(parse_lines lines)] }}
+        | 6 -> {{ [<h6 (po opts)>(parse_lines lines)] }}
         | _ -> raise (Invalid_polebrush "incorrect header level"))
     | Blockquote (opts, lines) ->
-        {{ <blockquote (po opts)>[<p (po opts)>(parse_lines lines)] }}
+        {{ [<blockquote (po opts)>[<p (po opts)>(parse_lines lines)]] }}
     | Footnote (i, (opts, lines)) ->
         let ref_url = utf (sprintf "#ref%d" i) in
         let arrow = utf "↑" in
-        {{ <p ({id={:"fn" ^ string_of_int i:} class="footnote"}
+        {{ [<p ({id={:"fn" ^ string_of_int i:} class="footnote"}
           ++ (po opts))>[<sup>(utf (string_of_int i))
-          ' ' <a href=ref_url>arrow ' ' !(parse_lines lines)] }}
+          ' ' <a href=ref_url>arrow ' ' !(parse_lines lines)]] }}
     | Paragraph (opts, lines) ->
-        {{ <p (po opts)>(parse_lines lines) }}
+        {{ [<p (po opts)>(parse_lines lines)] }}
     | Blockcode (opts, strings) ->
-        {{ <pre ({class="blockcode"} ++ (po opts))>[
-          <code>(parse_strings strings)] }}
+        {{ [<pre ({class="blockcode"} ++ (po opts))>[
+          <code>(parse_strings strings)]] }}
     | Pre (opts, strings) ->
-        {{ <pre (po opts)>(parse_strings strings) }}
+        {{ [<pre (po opts)>(parse_strings strings)] }}
     | Blocknomarkup (opts, strings) ->
-        {{ <div (po opts)>(parse_strings strings) }}
+        {{ [<div (po opts)>(parse_strings strings)] }}
     | Numlist  elements ->
-        parse_list (fun lis -> {{ <ol>lis }}) elements
+        let l = parse_list (fun lis -> {{ <ol>lis }}) elements in
+        {{ [l] }}
     | Bulllist elements ->
-        parse_list (fun lis -> {{ <ul>lis }}) elements
+        let l = parse_list (fun lis -> {{ <ul>lis }}) elements in
+        {{ [l] }}
     | Table (topts, rows) ->
-        {{ <table (pt topts)>(parse_rows rows) }}
+        {{ [<table (pt topts)>(parse_rows rows)] }}
+    | ToC (attrs, ta, p) ->
+        (match toc with
+        | None -> {{ [] }}
+        | Some toc ->
+            let opts = (Class "toc" :: attrs), ta, p in
+            let elements = Polebrush_html.elements_of_toc toc in
+            let l = parse_list (fun lis -> {{ <ol>lis }}) elements in
+            {{ [<div (po opts)>[l]] }})
 
-let xhtml_of_polebrush stream =
+let of_enum ?(disable_toc=false) enum =
+  let toc, enum =
+    if disable_toc
+    then None, enum
+    else
+      let toc, enum = Polebrush_html.toc_of_enum enum in
+      (Some toc), enum in
+  Enum.map xhtml_of_block enum
+
+let xhtml_of_enum ?(disable_toc=false) enum =
+  let toc, enum =
+    if disable_toc
+    then None, enum
+    else
+      let toc, enum = Polebrush_html.toc_of_enum enum in
+      (Some toc), enum in
+  let rec loop (acc : blocks) =
+    match Enum.get enum with
+    | Some block ->
+        loop {{ acc @ (xhtml_of_block block) }}
+    | None -> acc in
+  loop {{ [] }}
+
+let of_stream stream =
+  Stream.from (fun _ ->
+    try
+      let block = Stream.next stream in
+      Some (xhtml_of_block block)
+    with Stream.Failure -> None)
+
+let xhtml_of_stream stream =
   let rec loop (acc : blocks) =
     try
       let block = Stream.next stream in
-      loop {{ acc @ [(xhtml_of_block block)] }}
+      loop {{ acc @ (xhtml_of_block block) }}
     with Stream.Failure -> acc in
   loop {{ [] }}

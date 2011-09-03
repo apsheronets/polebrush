@@ -15,8 +15,8 @@
  *
  * Copyright 2011 Alexander Markov *)
 
-let get_header_from_polebrush polebrush =
-  match Stream.peek polebrush with
+let get_header_from_polebrush pb =
+  match Enum.peek pb with
   | Some (Polebrush.Header (_, (_, l::_))) ->
       Some (Polebrush.string_of_line l)
   | _ -> None
@@ -30,12 +30,14 @@ let () =
 
   let escape_html     = ref false in
   let escape_nomarkup = ref false in
+  let disable_toc     = ref false in
   let get_header      = ref false in
   let print_header    = ref false in
 
   let l = [
     "-escape-html", Arg.Set escape_html, "Escape html among markup";
     "-escape-nomarkup", Arg.Set escape_nomarkup, "Escape html in 'nomarkup.' and '== =='";
+    "-disable-toc", Arg.Set disable_toc, "Disable Tables of Contents, so all 'toc.' will be ignored; set it if you want stream processing";
     "-get-header",  Arg.Set get_header, "Only try to get header of page";
     "-print-header", Arg.Set print_header, "Additionally write 'Header: ...\\n\\n' before parsed text";
   ] in
@@ -44,27 +46,28 @@ let () =
   let text = Stream.from (fun _ -> try Some (read_line ())
     with End_of_file -> None) in
 
-  let polebrush = Polebrush_parser.of_stream text in
+  let pb = Polebrush_parser.enum text in
 
   if !get_header
   then (
-    match get_header_from_polebrush polebrush with
+    match get_header_from_polebrush pb with
     | Some h -> print_endline h; exit 0
     | None -> exit 1
   ) else (
     if !print_header
     then (
       print_string "Header: ";
-      (match get_header_from_polebrush polebrush with
+      (match get_header_from_polebrush pb with
       | Some h -> print_string h
       | None -> ());
       print_newline ();
       print_newline ());
     let xhtml =
-      Polebrush_html.of_stream
+      Polebrush_html.of_enum
+        ~disable_toc:(!disable_toc)
         ~escape_cdata:(!escape_html)
         ~escape_nomarkup:(!escape_nomarkup)
-        polebrush in
-    Stream.iter (print_string) xhtml;
+        pb in
+    Enum.iter (print_string) xhtml;
     exit 0
   )

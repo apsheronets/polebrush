@@ -17,14 +17,34 @@
 
 (** Facilities for converting polebrush into html *)
 
+(** This module uses type [Enum.t] from ExtLib as a more powerful way to work with streams. *)
+
 (** Raises only when function receives invalid AST, for example, with [Header 10]. *)
 exception Invalid_polebrush of string
 
-(** Function will not escape special HTML chars if [escape] is false. Default is true. *)
+(** Type of Table of Contents, where each line is a tuple of header's id, header's level and header itself *)
+type toc = (string * int * Polebrush.line list) list
+
+(** Consumes the enumeration and returns a Table of Contents and enumeration with additionaly id's in headers *)
+val toc_of_enum : Polebrush.block Enum.t -> toc * Polebrush.block Enum.t
+
+val elements_of_toc : toc -> Polebrush.element list
+
+(** @param disable_toc Do not generate Tables of Contents. Accelerates outputing and makes it streaming. If true, all [Polebrush.ToC] will be ignored. Default if false.
+    @param escape_cdata Do not escape spedial HTML chars. Default is false.
+    @param escape_nomarkup Escape special HTML chars even in [==nomarkup==] and [nomarkup.]. Default is false. *)
+val of_enum : ?disable_toc:bool -> ?escape_cdata:bool -> ?escape_nomarkup:bool -> Polebrush.block Enum.t -> string Enum.t
+
+(** The same, but do stream processing and don't do tables of Contents, just ignore it.
+    @param escape_cdata Do not escape spedial HTML chars. Default is false.
+    @param escape_nomarkup Escape special HTML chars even in [==nomarkup==] and [nomarkup.]. Default is false. *)
 val of_stream : ?escape_cdata:bool -> ?escape_nomarkup:bool -> Polebrush.block Stream.t -> string Stream.t
 
-(** The same, but takes one polebrush block. *)
-val of_block  : ?escape_cdata:bool -> ?escape_nomarkup:bool -> Polebrush.block -> string
+(** The same, but takes only one polebrush block.
+    @param toc Table of Contents which will be used if [toc.] will attended. If not passed, all [toc.] will be ignored.
+    @param escape_cdata Do not escape spedial HTML chars. Default is false.
+    @param escape_nomarkup Escape special HTML chars even in [==nomarkup==] and [nomarkup.]. Default is false. *)
+val of_block : ?toc:toc -> ?escape_cdata:bool -> ?escape_nomarkup:bool -> Polebrush.block -> string
 
 (** Example of use:
 

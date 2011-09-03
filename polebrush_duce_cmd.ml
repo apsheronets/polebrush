@@ -15,19 +15,54 @@
  *
  * Copyright 2011 Alexander Markov *)
 
-let text = Stream.from (fun _ -> try Some (read_line ())
-  with End_of_file -> None)
+let print_xhtmls l =
+  List.iter (Xhtmlpretty_duce.pretty_print_xhtml print_string) {: l :}
 
-let polebrush = Polebrush_parser.of_stream text
+let get_header_from_polebrush pb =
+  match Enum.peek pb with
+  | Some (Polebrush.Header (_, (_, l::_))) ->
+      Some (Polebrush.string_of_line l)
+  | _ -> None
 
-let xhtml = Stream.from (fun _ ->
-  try Some (Polebrush_duce.xhtml_of_block (Stream.next polebrush))
-  with Stream.Failure -> None)
+let () =
 
-let print_xhtml =
-  Xhtmlpretty_duce.pretty_print_xhtml
-    print_string
+  let help =
+    "polebrush markup language formatter (OCamlduce version)\n" ^
+    "usage: polebrush_duce [OPTIONS]\n" ^
+    "example: echo '*hello*' | polebrush_duce" in
 
-let _ =
-  Stream.iter (print_xhtml) xhtml;
-  exit 0
+  let disable_toc     = ref false in
+  let get_header      = ref false in
+  let print_header    = ref false in
+
+  let l = [
+    "-disable-toc", Arg.Set disable_toc, "Disable Tables of Contents, so all 'toc.' will be ignored; set it if you want stream processing";
+    "-get-header",  Arg.Set get_header, "Only try to get header of page";
+    "-print-header", Arg.Set print_header, "Additionally write 'Header: ...\\n\\n' before parsed text";
+  ] in
+  Arg.parse l (fun _ -> raise (Arg.Bad help)) help;
+
+  let text = Stream.from (fun _ -> try Some (read_line ())
+    with End_of_file -> None) in
+
+  let pb = Polebrush_parser.enum text in
+
+  if !get_header
+  then (
+    match get_header_from_polebrush pb with
+    | Some h -> print_endline h; exit 0
+    | None -> exit 1
+  ) else (
+    if !print_header
+    then (
+      print_string "Header: ";
+      (match get_header_from_polebrush pb with
+      | Some h -> print_string h
+      | None -> ());
+      print_newline ();
+      print_newline ());
+    Enum.iter
+      print_xhtmls
+      (Polebrush_duce.of_enum ~disable_toc:(!disable_toc) pb);
+    exit 0
+  )

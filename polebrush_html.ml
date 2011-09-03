@@ -18,9 +18,94 @@
 open Printf
 open Polebrush
 
+(* code from Ocsigen
+ * Copyright (C) 2005-2008 Vincent Balat, Stéphane Glondu
+ * Laboratoire PPS - CNRS Université Paris Diderot *)
+
+let hex_digits =
+  [| '0'; '1'; '2'; '3'; '4'; '5'; '6'; '7';
+     '8'; '9'; 'A'; 'B'; 'C'; 'D'; 'E'; 'F' |]
+
+let to_hex2 k =
+  (* Converts k to a 2-digit hex string *)
+  let s = String.create 2 in
+  s.[0] <- hex_digits.( (k lsr 4) land 15 );
+  s.[1] <- hex_digits.( k land 15 );
+  s
+
+let of_hex1 c =
+  match c with
+  | ('0'..'9') -> Char.code c - Char.code '0'
+  | ('A'..'F') -> Char.code c - Char.code 'A' + 10
+  | ('a'..'f') -> Char.code c - Char.code 'a' + 10
+  | _ -> raise Not_found
+
+(* http://www.w3schools.com/tags/att_standard_id.asp says:
+
+Naming rules:
+
+  * Must begin with a letter A-Z or a-z
+  * Can be followed by: letters (A-Za-z), digits (0-9), hyphens ("-"), underscores ("_"), colons (":"), and periods (".")
+  * Values are case-sensitive *)
+let encode_id =
+  let valid_char = function
+    | 'A'..'Z' | 'a'..'z' | '0'..'9' | '-' | '_' | ':' | '.' -> true
+    | _ -> false in
+  let valid_begin_char = function
+    | 'A'..'Z' | 'a'..'z' -> true
+    | _ -> false in
+  let esc s =
+    let prefix = '.' in
+    let strlen = String.length s in
+    let buf = Buffer.create (strlen*6) in
+    (try
+      let () =
+        let c = s.[0] in
+        if valid_begin_char c
+        then Buffer.add_char buf c
+        else (
+          Buffer.add_char   buf prefix;
+          Buffer.add_string buf (to_hex2 (Char.code c))
+        ) in
+      for i = 1 to (String.length s - 1) do
+        let c = s.[i] in
+        if valid_char c
+        then Buffer.add_char buf c
+        else
+          (* don't encode whitespaces *)
+          if c = ' ' || c = '\t'
+          then Buffer.add_char buf '-'
+          else (
+            Buffer.add_char   buf prefix;
+            Buffer.add_string buf (to_hex2 (Char.code c));
+          )
+      done
+    with Invalid_argument _ -> ());
+    Buffer.contents buf in
+  esc
+
+let rec exude p = function
+  | [] -> raise Not_found
+  | x :: l -> (match p x with
+      | Some y -> y
+      | None -> exude p l)
+
+let make_id_from_header lines =
+  let strings = List.map string_of_line lines in
+  let s = String.concat "\n" strings in
+  (* FIXME *)
+  encode_id s
+
 exception Invalid_polebrush of string
 
-let of_block ?(escape_cdata=false) ?(escape_nomarkup=false) block =
+type toc = (string * int * Polebrush.line list) list
+
+let elements_of_toc : toc -> Polebrush.element list =
+  List.map
+    (fun (header_id, lvl, lines) ->
+      lvl, [Polebrush.Link (([], [CData (String.concat " " (List.map Polebrush.string_of_line lines))]), None, sprintf "#%s" header_id)])
+
+let of_block ?toc ?(escape_cdata=false) ?(escape_nomarkup=false) block =
   let esc s =
     let strlen = String.length s in
     let buf = Buffer.create strlen in
@@ -211,11 +296,65 @@ let of_block ?(escape_cdata=false) ?(escape_nomarkup=false) block =
       parse_list (sprintf "<ul>%s</ul>") elements
   | Table (topts, rows) ->
       sprintf "<table%s>%s</table>" (pt topts) (parse_rows rows)
+  | ToC (attrs, ta, p) ->
+      (match toc with
+      | None -> ""
+      | Some toc ->
+          let opts = (Class "toc" :: attrs), ta, p in
+          let elements = elements_of_toc toc in
+          let l = parse_list (fun x -> sprintf "<ol>%s</ol>" x) elements in
+          sprintf "<div%s>%s</div>" (po opts) l)
 
-let of_stream ?(escape_cdata=false) ?(escape_nomarkup=false) stream =
-  let next _ =
+let toc_of_enum enum =
+  let toc_rev = ref [] in
+  let id_tbl = Hashtbl.create 42 in
+  let add_id attrs lvl lines =
+    let header_id, add_to_attrs =
+      (* try to find ready id *)
+      try exude (function Id id -> Some id | _ -> None) attrs, false
+      (* if not, make it from lines *)
+      with Not_found -> make_id_from_header lines, true in
+    let header_id, add_to_attrs =
+      try
+        let count = Hashtbl.find id_tbl header_id in
+        let count = succ count in
+        Hashtbl.replace id_tbl header_id count;
+        sprintf "%s-%d" header_id count, true
+      with Not_found ->
+        (Hashtbl.add id_tbl header_id 0;
+        header_id, add_to_attrs) in
+    let attrs =
+      if add_to_attrs
+      then (Id header_id) :: attrs
+      else attrs in
+    toc_rev := (header_id, lvl, lines) :: !toc_rev;
+    attrs in
+  let toc_enum =
+    Enum.map
+      (function
+        | Header (lvl, ((attrs,                  t, p), lines)) ->
+          Header (lvl, ((add_id attrs lvl lines, t, p), lines))
+        | b -> b)
+      enum in
+  let toc =
+    Enum.force toc_enum;
+    List.rev !toc_rev in
+  toc, toc_enum
+
+let of_enum ?(disable_toc=false) ?escape_cdata ?escape_nomarkup enum =
+  let toc, enum =
+    if disable_toc
+    then None, enum
+    else
+      let toc, enum = toc_of_enum enum in
+      (Some toc), enum in
+  Enum.map (of_block ?toc ?escape_cdata ?escape_nomarkup) enum
+
+let of_stream ?escape_cdata ?escape_nomarkup stream =
+  Stream.from (fun _ ->
     try
-      Some (of_block ~escape_cdata ~escape_nomarkup (Stream.next stream))
-    with Stream.Failure -> None in
-  Stream.from next
+      let b = Stream.next stream in
+      Some (of_block ?escape_cdata ?escape_nomarkup b)
+    with Stream.Failure -> None)
+
 

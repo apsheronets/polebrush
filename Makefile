@@ -21,7 +21,7 @@ DUCEPACKAGES = ocamlduce,ocsigen
 DUCELIB = -package $(PACKAGES),$(DUCEPACKAGES)
 DUCEC   = ocamlducefind ocamlc   -thread $(DUCELIB)
 DUCEOPT = ocamlducefind ocamlopt -thread $(DUCELIB)
-DUCEDOC = ocamlducefind ocamldoc -keep-code -colorize-code $(DUCELIB)
+DUCEDOC = ocamlducefind ocamldoc -thread -keep-code -colorize-code $(DUCELIB)
 DUCEDEP = ocamlducefind ocamldep
 
 LIB = -package $(PACKAGES)
@@ -112,7 +112,7 @@ xhtmlpretty_duce.cmx: xhtmlpretty_duce.ml
 	$(DUCEOPT) -c $<
 polebrush_duce_cmd.cmx: polebrush_duce_cmd.ml
 	$(DUCEOPT) -c $<
-polebrush_duce: xhtmlpretty_duce.cmx polebrush.cmxa polebrush_duce.cmxa polebrush_duce_cmd.cmx
+polebrush_duce: xhtmlpretty_duce.cmx polebrush.cmxa polebrush_html.cmxa polebrush_duce.cmxa polebrush_duce_cmd.cmx
 	$(DUCEOPT) -linkpkg -o $@ $^
 
 tests: polebrush_cmd polebrush_duce_cmd

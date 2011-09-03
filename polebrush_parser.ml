@@ -430,7 +430,8 @@ let block_type =
   (p_str "no" >>> (p_str "textile" ||| p_str "markup") >>>
     return (`Textblock `Blocknomarkup)) |||
   (p_char 'p'  >>> return (`Textblock `Paragraph)) |||
-  (p_str "table" >>> return `Table)
+  (p_str "table" >>> return `Table) |||
+  (p_str "toc" >>> return `ToC)
 
 let block_modifier =
   p_many p_whitespace >>> (* skip whitespaces *)
@@ -441,6 +442,12 @@ let block_modifier =
       p_many p_whitespace >>>
       p_end >>>
       return (`Table topts)
+  | `ToC ->
+      options >>= fun opts ->
+      p_char '.' >>>
+      p_many p_whitespace >>>
+      p_end >>>
+      return (`ToC opts)
   | `Textblock bm ->
       options >>= fun opts ->
       p_char '.' >>>
@@ -451,7 +458,7 @@ let block_modifier =
       (*dont_jump p_somechar >>>*)
       return (`Textblock (bm, opts, extended))
 
-let of_stream stream =
+let rec next_block stream =
 
   (*let get_content parse_first parse empty is_ext =
     let rec loop acc (s, pos) =
@@ -652,6 +659,11 @@ let of_stream stream =
             (get_extra_rows >>= function
             | [] -> fail
             | rows ->  return (Table (topts, rows)))
+        | `ToC opts ->
+            (match Stream.peek stream with
+            | None | Some "" (* FIXME *) ->
+                Stream.junk stream; return (ToC opts)
+            | _ -> fail)
       (* only table *)
       ) ||| (
         get_rows >>= fun rows ->
@@ -671,12 +683,39 @@ let of_stream stream =
     | Parsed (r, _) -> r
     | Failed -> assert false (* FIXME *) in
 
-  let rec next_block () =
-    try
-      match Stream.next stream with
-      |  ""  -> next_block ()
-      | fstr -> Some (get_block fstr)
-    with Stream.Failure -> None in
+  try
+    match Stream.next stream with
+    |  ""  -> next_block stream
+    | fstr -> Some (get_block fstr)
+  with Stream.Failure -> None
 
-  Stream.from (fun _ -> next_block ())
+let of_stream stream =
+  Stream.from (fun _ -> next_block stream)
+
+let enum stream =
+  Enum.from (fun () ->
+    match next_block stream with
+    | Some b -> b
+    | None -> raise Enum.No_more_elements)
+
+(*let toc_of_enum enum =
+  let 
+  let rec loop acc =
+    match Enum.get with
+    | Some (Header (lvl, (attrs, _, lines))) ->
+        (* a good function *)
+        let rec exude p = function
+          | [] -> raise Not_found
+          | x :: l -> (match p x with
+              | Some y -> y
+              | None -> exude p l) in
+        try
+          (* let's try to not re-invent the wheel *)
+          exude (function Id id -> Some id)
+        with Not_found ->
+          
+        loop (lvl, 
+    | Some _ -> loop acc
+    | None ->
+*)
 

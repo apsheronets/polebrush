@@ -135,6 +135,7 @@ type block =
   | Numlist        of element list              (** # *)
   | Bulllist       of element list              (** * *)
   | Table          of (tableoptions * row list) (** |t|a|b| *)
+  | ToC            of options                   (** toc. *)
 
 (** {2 Translation} *)
 

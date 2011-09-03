@@ -20,6 +20,12 @@
 (** Raises only when function receives invalid AST, for example, with [Header 10]. *)
 exception Invalid_polebrush of string
 
-val xhtml_of_block : Polebrush.block -> Xhtmltypes_duce.block
+val xhtml_of_block : ?toc:Polebrush_html.toc -> Polebrush.block -> Xhtmltypes_duce.blocks
 
-val xhtml_of_polebrush : Polebrush.block Stream.t -> Xhtmltypes_duce.blocks
+val of_enum : ?disable_toc:bool -> Polebrush.block Enum.t -> Xhtmltypes_duce.blocks Enum.t
+
+val of_stream : Polebrush.block Stream.t -> Xhtmltypes_duce.blocks Stream.t
+
+val xhtml_of_enum : ?disable_toc:bool -> Polebrush.block Enum.t -> Xhtmltypes_duce.blocks
+
+val xhtml_of_stream : Polebrush.block Stream.t -> Xhtmltypes_duce.blocks

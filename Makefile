@@ -12,8 +12,15 @@ DUCEF     = polebrush_duce.ml
 CAMLSRC = polebrush_parsercomb.ml polebrush.ml polebrush_parser.ml polebrush_html.ml
 DUCESRC = xhtmlpretty_duce.ml polebrush_duce.ml polebrush_duce_cmd.ml
 
-DOCSRC = polebrush.ml polebrush_parser.ml polebrush_html.ml polebrush.mli polebrush_parser.mli polebrush_html.mli
-DUCEDOCSRC = $(DOCSRC) polebrush_duce.ml polebrush_duce.mli
+CAMLDOCSRC = polebrush.mli polebrush_parser.mli polebrush_html.mli
+DUCEDOCSRC = $(CAMLDOCSRC) polebrush_duce.mli
+ifeq "$(DUCE)" "yes"
+  DOCSRC = $(DUCEDOCSRC)
+  DOC    = $(DUCEDOC)
+else
+  DOCSRC = $(CAMLDOCSRC)
+  DOC    = $(CAMLDOC)
+endif
 
 PACKAGES = extlib
 DUCEPACKAGES = ocamlduce,ocsigen
@@ -135,14 +142,9 @@ uninstall-lib:
 .ml.cmx:
 	$(CAMLOPT) -c $<
 
-doc:
+doc: $(DOCSRC:.mli=.cmi)
 	-mkdir -p doc
-ifeq "$(DUCE)" "yes"
-	$(DUCEDOC) -d doc -html $(DUCEDOCSRC)
-else
-	$(CAMLDOC) -d doc -html $(DOCSRC)
-endif
-
+	$(DOC) -d doc -html $(DOCSRC)
 
 clean:
 	-rm -f *.cm[ioxa] *.o *.a *.cmx[as] *~

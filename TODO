@@ -5,3 +5,5 @@
 * usage manual
 * more tests
 * do something with non-unique ids
+* fix epic bug with links "like (that) one":http://google.com
+* fix |this[1]| problem

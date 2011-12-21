@@ -105,78 +105,82 @@ let elements_of_toc : toc -> Polebrush.element list =
     (fun (header_id, lvl, lines) ->
       lvl, [Polebrush.Link (([], [CData (String.concat " " (List.map Polebrush.string_of_line lines))]), None, sprintf "#%s" header_id)])
 
-let of_block ?toc ?(escape_cdata=false) ?(escape_nomarkup=false) block =
-  let esc s =
-    let strlen = String.length s in
-    let buf = Buffer.create strlen in
-    let f = function
-      | '&' -> Buffer.add_string buf "&amp;"
-      | '<' -> Buffer.add_string buf "&lt;"
-      | '>' -> Buffer.add_string buf "&gt;"
-      | '"' -> Buffer.add_string buf "&quot;"
-      |  c  -> Buffer.add_char buf c in
-    String.iter f s;
-    Buffer.contents buf in
-  let dont_esc s = s in
+let esc s =
+  let strlen = String.length s in
+  let buf = Buffer.create strlen in
+  let f = function
+    | '&' -> Buffer.add_string buf "&amp;"
+    | '<' -> Buffer.add_string buf "&lt;"
+    | '>' -> Buffer.add_string buf "&gt;"
+    | '"' -> Buffer.add_string buf "&quot;"
+    |  c  -> Buffer.add_char buf c in
+  String.iter f s;
+  Buffer.contents buf
+let dont_esc s = s
+
+let parse_attr = function
+  | Class    s -> sprintf "class=\"%s\"" (esc s)
+  | Id       s -> sprintf "id=\"%s\""    (esc s)
+  | Style    s -> sprintf "style=\"%s\"" (esc s)
+  | Language s -> sprintf "lang=\"%s\""  (esc s)
+
+let parse_attrs = function
+  | [] -> ""
+  | attrs ->
+      let buf = Buffer.create 80 in
+      List.iter (fun attr ->
+        Buffer.add_char buf ' ';
+        Buffer.add_string buf (parse_attr attr)) attrs;
+      Buffer.contents buf
+let pa = parse_attrs
+
+let rec parse_phrase escape_cdata escape_nomarkup =
   let print_cdata    = if escape_cdata    then esc else dont_esc in
   let print_nomarkup = if escape_nomarkup then esc else dont_esc in
-
-  let parse_attr = function
-    | Class    s -> sprintf "class=\"%s\"" (esc s)
-    | Id       s -> sprintf "id=\"%s\""    (esc s)
-    | Style    s -> sprintf "style=\"%s\"" (esc s)
-    | Language s -> sprintf "lang=\"%s\""  (esc s) in
-
-  let parse_attrs = function
-    | [] -> ""
-    | attrs ->
-        let buf = Buffer.create 80 in
-        List.iter (fun attr ->
-          Buffer.add_char buf ' ';
-          Buffer.add_string buf (parse_attr attr)) attrs;
-        Buffer.contents buf in
-  let pa = parse_attrs in
-
-  let rec parse_phrase =
-    let p = sprintf in
-    let pl = parse_line in function
-    | CData str -> (print_cdata str)
-    | Strong      (a,l) -> p "<strong%s>%s</strong>" (pa a) (pl l)
-    | Italic      (a,l) -> p "<i%s>%s</i>" (pa a) (pl l)
-    | Bold        (a,l) -> p "<b%s>%s</b>" (pa a) (pl l)
-    | Emphasis    (a,l) -> p "<em%s>%s</em>" (pa a) (pl l)
-    | Citation    (a,l) -> p "<cite%s>%s</cite>" (pa a) (pl l)
-    | Deleted     (a,l) -> p "<del%s>%s</del>" (pa a) (pl l)
-    | Inserted    (a,l) -> p "<ins%s>%s</ins>" (pa a) (pl l)
-    | Superscript (a,l) -> p "<sup%s>%s</sup>" (pa a) (pl l)
-    | Subscript   (a,l) -> p "<sub%s>%s</sub>" (pa a) (pl l)
-    | Span        (a,l) -> p "<span%s>%s</span>" (pa a) (pl l)
-    | Code        (a,s) -> p "<code%s>%s</code>" (pa a) (esc s)
-    | Nomarkup       s  -> p "%s" (print_nomarkup s)
-    | Acronym (a, b) ->
-        p "<acronym title=\"%s\">%s</acronym>" (esc b) (print_cdata a)
-    | Image (a, float, src, alt) ->
-        (let alt, title = match alt with
-        | Some s -> let s = esc s in p "alt=\"%s\"" s, p " title=\"%s\"" s
-        | None -> "alt=\"\"", "" in
-        let float = match float with
-        | Some Float_left  -> " style=\"float: left\""
-        | Some Float_right -> " style=\"float: right\""
+  let p = sprintf in
+  let pl = of_line escape_cdata escape_nomarkup in function
+  | CData str -> (print_cdata str)
+  | Strong      (a,l) -> p "<strong%s>%s</strong>" (pa a) (pl l)
+  | Italic      (a,l) -> p "<i%s>%s</i>" (pa a) (pl l)
+  | Bold        (a,l) -> p "<b%s>%s</b>" (pa a) (pl l)
+  | Emphasis    (a,l) -> p "<em%s>%s</em>" (pa a) (pl l)
+  | Citation    (a,l) -> p "<cite%s>%s</cite>" (pa a) (pl l)
+  | Deleted     (a,l) -> p "<del%s>%s</del>" (pa a) (pl l)
+  | Inserted    (a,l) -> p "<ins%s>%s</ins>" (pa a) (pl l)
+  | Superscript (a,l) -> p "<sup%s>%s</sup>" (pa a) (pl l)
+  | Subscript   (a,l) -> p "<sub%s>%s</sub>" (pa a) (pl l)
+  | Span        (a,l) -> p "<span%s>%s</span>" (pa a) (pl l)
+  | Code        (a,s) -> p "<code%s>%s</code>" (pa a) (esc s)
+  | Nomarkup       s  -> p "%s" (print_nomarkup s)
+  | Acronym (a, b) ->
+      p "<acronym title=\"%s\">%s</acronym>" (esc b) (print_cdata a)
+  | Image (a, float, src, alt) ->
+      (let alt, title = match alt with
+      | Some s -> let s = esc s in p "alt=\"%s\"" s, p " title=\"%s\"" s
+      | None -> "alt=\"\"", "" in
+      let float = match float with
+      | Some Float_left  -> " style=\"float: left\""
+      | Some Float_right -> " style=\"float: right\""
+      | None -> "" in
+      p "<img %s%s src=\"%s\"%s%s />" alt float (esc src) (pa a) title)
+  | Link ((attrs, l), title, url) ->
+      (let title = match title with
+        | Some s -> sprintf " title=%S" (esc s)
         | None -> "" in
-        p "<img %s%s src=\"%s\"%s%s />" alt float (esc src) (pa a) title)
-    | Link ((attrs, l), title, url) ->
-        (let title = match title with
-          | Some s -> sprintf " title=%S" (esc s)
-          | None -> "" in
-        p "<a%s href=\"%s\"%s>%s</a>" title (esc url) (pa attrs) (pl l))
-    | Reference i ->
-        p "<sup class=\"footnote\"><a id=\"ref%d\" href=\"#fn%d\">%d</a></sup>" i i i
+      p "<a%s href=\"%s\"%s>%s</a>" title (esc url) (pa attrs) (pl l))
+  | Reference i ->
+      p "<sup class=\"footnote\"><a id=\"ref%d\" href=\"#fn%d\">%d</a></sup>" i i i
 
-  and parse_line line =
-    String.concat "" (List.map parse_phrase line) in
+and of_line escape_cdata escape_nomarkup line =
+  String.concat "" (List.map (parse_phrase escape_cdata escape_nomarkup) line)
+
+let of_block ?toc ?(escape_cdata=false) ?(escape_nomarkup=false) block =
+
+  let print_nomarkup = if escape_nomarkup then esc else dont_esc in
+  let of_line = of_line escape_cdata escape_nomarkup in
 
   let parse_lines lines =
-    String.concat "<br />" (List.map parse_line lines) in
+    String.concat "<br />" (List.map of_line lines) in
 
   let to_lines print strings =
     String.concat "\n" (List.map print strings) in
@@ -246,9 +250,9 @@ let of_block ?toc ?(escape_cdata=false) ?(escape_nomarkup=false) block =
     let rec fill_lvl filled_lvl prev acc =
       function
       | (lvl, line) :: t when lvl = filled_lvl ->
-          fill_lvl filled_lvl (parse_line line) (sprintf "%s<li>%s</li>" acc prev) t
+          fill_lvl filled_lvl (of_line line) (sprintf "%s<li>%s</li>" acc prev) t
       | (lvl, line) :: t when lvl = filled_lvl + 1 ->
-          let first = parse_line line in
+          let first = of_line line in
           let lis, rest = fill_lvl lvl first "" t in
           fill_lvl filled_lvl (prev ^ (f lis)) acc rest
       | ((lvl, _) :: t) as l when lvl < filled_lvl ->
@@ -262,7 +266,7 @@ let of_block ?toc ?(escape_cdata=false) ?(escape_nomarkup=false) block =
     function
     | [] -> raise (Invalid_polebrush "empty bull- or numlist")
     | (1, line)::t ->
-        let first = parse_line line in
+        let first = of_line line in
         let lis, _ = fill_lvl 1 first "" t in
         f lis
     | _ -> raise (Invalid_polebrush "strange bull- or numlist") in
@@ -357,4 +361,6 @@ let of_stream ?escape_cdata ?escape_nomarkup stream =
       Some (of_block ?escape_cdata ?escape_nomarkup b)
     with Stream.Failure -> None)
 
+let of_line ?(escape_cdata=false) ?(escape_nomarkup=false) =
+  of_line escape_cdata escape_nomarkup
 

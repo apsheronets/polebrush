@@ -41,7 +41,9 @@ case "$1" in
   polebrush-root) su -c "$0 polebrush" $user;;
   polebrush) release_polebrush;;
   *) $0 sources &&
-    darcs push --no-set-default --all $chroot_dir/$chroot_dist_dir &&
+    rm -r $chroot_dir/$chroot_dist_dir &&
+    darcs put --no-set-default $chroot_dir/$chroot_dist_dir &&
+    #darcs push --no-set-default --all $chroot_dir/$chroot_dist_dir &&
     chmod +x $chroot_dir/$chroot_dist_dir/devel/release.sh &&
     sudo chroot $chroot_dir $chroot_dist_dir/devel/release.sh polebrush-root;
     cp $chroot_dir/$chroot_dist_dir/$polebrush_name.tar.gz $tar_dst/bin/;;

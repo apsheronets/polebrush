@@ -61,3 +61,5 @@ let () =
   Stream.iter print_endline (Polebrush_html.of_block polebrush)
 ]} *)
 
+val of_line : ?escape_cdata:bool -> ?escape_nomarkup:bool -> Polebrush.line -> string
+

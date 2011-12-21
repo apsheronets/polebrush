@@ -30,6 +30,7 @@ let () =
 
   let escape_html     = ref false in
   let escape_nomarkup = ref false in
+  let light           = ref false in
   let disable_toc     = ref false in
   let get_header      = ref false in
   let print_header    = ref false in
@@ -37,6 +38,7 @@ let () =
   let l = [
     "-escape-html", Arg.Set escape_html, "Escape html among markup";
     "-escape-nomarkup", Arg.Set escape_nomarkup, "Escape html in 'nomarkup.' and '== =='";
+    "-light", Arg.Set light, "Light mode: no blocks, just lines";
     "-disable-toc", Arg.Set disable_toc, "Disable Tables of Contents, so all 'toc.' will be ignored; set it if you want stream processing";
     "-get-header",  Arg.Set get_header, "Only try to get header of page";
     "-print-header", Arg.Set print_header, "Additionally write 'Header: ...\\n\\n' before parsed text";
@@ -45,6 +47,23 @@ let () =
 
   let text = Stream.from (fun _ -> try Some (read_line ())
     with End_of_file -> None) in
+
+  if !light
+  then
+    let first_line = ref true in
+    Stream.iter (fun s ->
+      if !first_line
+      then first_line := false
+      else print_string "<br/>";
+      let line = Polebrush_parser.line_of_string s in
+      let s =
+        Polebrush_html.of_line
+          ~escape_cdata:(!escape_html)
+          ~escape_nomarkup:(!escape_nomarkup)
+          line in
+      print_string s) text;
+    exit 0
+  else
 
   let pb = Polebrush_parser.enum text in
 

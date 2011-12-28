@@ -710,24 +710,3 @@ let enum stream =
     | Some b -> b
     | None -> raise Enum.No_more_elements)
 
-(*let toc_of_enum enum =
-  let 
-  let rec loop acc =
-    match Enum.get with
-    | Some (Header (lvl, (attrs, _, lines))) ->
-        (* a good function *)
-        let rec exude p = function
-          | [] -> raise Not_found
-          | x :: l -> (match p x with
-              | Some y -> y
-              | None -> exude p l) in
-        try
-          (* let's try to not re-invent the wheel *)
-          exude (function Id id -> Some id)
-        with Not_found ->
-          
-        loop (lvl, 
-    | Some _ -> loop acc
-    | None ->
-*)
-

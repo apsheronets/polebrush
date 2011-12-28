@@ -362,6 +362,18 @@ and all_phrases end_of_phrase =
 
     let r = Link ((a, line), title_opt, url) in
     return r)
+  ) |||
+  (* short hyperlink *)
+  (
+    p_char ':' >>>
+    (* XXX: hm *)
+    check_current p_not_whitespace >>>
+    try_attrs (fun a ->
+    p_str_until end_of_phrase >>= fun link ->
+    (* FIXME *)
+    p_string_not_empty link >>>
+    let r = Link ((a, [CData link]), None, link) in
+    return r)
   )
 
 let line (s, pos) =

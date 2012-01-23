@@ -22,8 +22,8 @@ else
   DOC    = $(CAMLDOC)
 endif
 
-PACKAGES = extlib
-DUCEPACKAGES = ocamlduce,ocsigen
+PACKAGES = extlib,netstring
+DUCEPACKAGES = ocamlduce,tyxml.duce
 
 DUCELIB = -package $(PACKAGES),$(DUCEPACKAGES)
 DUCEC   = ocamlducefind ocamlc   -thread $(DUCELIB)

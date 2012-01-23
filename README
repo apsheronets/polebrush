@@ -13,8 +13,7 @@ First you need to get
 
 Optionaly (for OCamlduce support):
 * OCamlduce - modified OCaml compiler (http://www.cduce.org/ocaml.html)
-* ocsigen webserver - only for its libs, so you don't need to
-  launch it (http://ocsigen.org/)
+* TyXML (http://ocsigen.org/tyxml/)
 
 Then run:
 

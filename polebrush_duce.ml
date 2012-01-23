@@ -17,7 +17,7 @@
 
 open Printf
 open Polebrush
-open Xhtmltypes_duce
+open XHTML_types_duce
 
 (* Ocamlduce's crutches *)
 let utf = Ocamlduce.Utf8.make

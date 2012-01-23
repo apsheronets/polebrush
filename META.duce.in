@@ -1,6 +1,6 @@
 
 package "_NAME_" (
-  description = "ocamlduce XHTML support for ocsigen"
+  description = "ocamlduce XHTML support for TyXML"
   requires = "_REQUIRES_,polebrush"
   archive(byte)   = "_BYTE_"
   archive(native) = "_NATIVE_"

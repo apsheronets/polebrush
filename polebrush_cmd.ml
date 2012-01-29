@@ -50,9 +50,11 @@ let () =
       let l = read_line () in
       (* FIXME: checking for \r *)
       let l =
-        if l.[(String.length l) - 1] = '\r'
-        then String.sub l 0 ((String.length l) - 1)
-        else l in
+        try
+          if l.[(String.length l) - 1] = '\r'
+          then String.sub l 0 ((String.length l) - 1)
+          else l
+        with Invalid_argument _ -> l in
       Some l
     with
       End_of_file -> None) in

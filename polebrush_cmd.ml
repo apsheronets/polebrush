@@ -45,8 +45,17 @@ let () =
   ] in
   Arg.parse l (fun _ -> raise (Arg.Bad help)) help;
 
-  let text = Stream.from (fun _ -> try Some (read_line ())
-    with End_of_file -> None) in
+  let text = Stream.from (fun _ ->
+    try
+      let l = read_line () in
+      (* FIXME: checking for \r *)
+      let l =
+        if l.[(String.length l) - 1] = '\r'
+        then String.sub l 0 ((String.length l) - 1)
+        else l in
+      Some l
+    with
+      End_of_file -> None) in
 
   if !light
   then

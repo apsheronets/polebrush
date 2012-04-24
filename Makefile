@@ -1,5 +1,5 @@
 ifndef DUCE
-  DUCE := $(shell if [ `which ocamlduce` ]; then echo yes; else echo no; fi)
+  DUCE := $(shell if [ `which ocamlduce` ] && [ `ocamlfind query tyxml.duce 2> /dev/null` ]; then echo yes; else echo no; fi)
 endif
 
 LIBNAME = polebrush

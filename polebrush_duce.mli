@@ -15,17 +15,17 @@
  *
  * Copyright 2011 Alexander Markov *)
 
-(** Facilities for converting polebrush into TyXML's [XHTML_types_duce] representation *)
+(** Facilities for converting polebrush into TyXML's [Xhtml_types_duce] representation *)
 
 (** Raises only when function receives invalid AST, for example, with [Header 10]. *)
 exception Invalid_polebrush of string
 
-val xhtml_of_block : ?toc:Polebrush_html.toc -> Polebrush.block -> XHTML_types_duce.blocks
+val xhtml_of_block : ?toc:Polebrush_html.toc -> Polebrush.block -> Xhtml_types_duce.blocks
 
-val of_enum : ?disable_toc:bool -> Polebrush.block Enum.t -> XHTML_types_duce.blocks Enum.t
+val of_enum : ?disable_toc:bool -> Polebrush.block Enum.t -> Xhtml_types_duce.blocks Enum.t
 
-val of_stream : Polebrush.block Stream.t -> XHTML_types_duce.blocks Stream.t
+val of_stream : Polebrush.block Stream.t -> Xhtml_types_duce.blocks Stream.t
 
-val xhtml_of_enum : ?disable_toc:bool -> Polebrush.block Enum.t -> XHTML_types_duce.blocks
+val xhtml_of_enum : ?disable_toc:bool -> Polebrush.block Enum.t -> Xhtml_types_duce.blocks
 
-val xhtml_of_stream : Polebrush.block Stream.t -> XHTML_types_duce.blocks
+val xhtml_of_stream : Polebrush.block Stream.t -> Xhtml_types_duce.blocks

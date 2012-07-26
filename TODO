@@ -1,4 +1,4 @@
-* Making printers more customize, for example, to colorize code inside @code@
+* Make printers more customizeable, for example, to colorize code inside @code@
 * URL encoding
 * fix a !>{style}...! bug
 * installation manual

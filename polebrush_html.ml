@@ -259,7 +259,7 @@ let of_block ?toc ?(escape_cdata=false) ?(escape_nomarkup=false) block =
           sprintf "%s<li>%s</li>" acc prev, l
       | [] as l ->
           sprintf "%s<li>%s</li>" acc prev, l
-      | (lvl, _) :: _ ->
+        | (lvl, _) :: _ ->
           raise (Invalid_polebrush (
             sprintf "strange bull- or numlist: filled level is %d, but the next element has level %d"
               filled_lvl lvl)) in
@@ -301,13 +301,15 @@ let of_block ?toc ?(escape_cdata=false) ?(escape_nomarkup=false) block =
   | Table (topts, rows) ->
       sprintf "<table%s>%s</table>" (pt topts) (parse_rows rows)
   | ToC (attrs, ta, p) ->
-      (match toc with
-      | None -> ""
-      | Some toc ->
-          let opts = (Class "toc" :: attrs), ta, p in
-          let elements = elements_of_toc toc in
-          let l = parse_list (fun x -> sprintf "<ol>%s</ol>" x) elements in
-          sprintf "<div%s>%s</div>" (po opts) l)
+        (match toc with
+        | None -> ""
+        | Some toc ->
+            try
+              let opts = (Class "toc" :: attrs), ta, p in
+              let elements = elements_of_toc toc in
+              let l = parse_list (fun x -> sprintf "<ol>%s</ol>" x) elements in
+              sprintf "<div%s>%s</div>" (po opts) l
+            with Invalid_polebrush _ -> "")
 
 let toc_of_enum enum =
   let toc_rev = ref [] in

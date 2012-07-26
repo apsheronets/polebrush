@@ -18,7 +18,7 @@
  *)
 
 (**
-   Pretty printer for XHTML with Ocamlduce.
+   Pretty printer for Xhtml with Ocamlduce.
    Handles browser specificities properly.
    
    @author Jaap Boender

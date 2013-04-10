@@ -46,6 +46,6 @@ case "$1" in
     #darcs push --no-set-default --all $chroot_dir/$chroot_dist_dir &&
     chmod +x $chroot_dir/$chroot_dist_dir/devel/release.sh &&
     sudo chroot $chroot_dir $chroot_dist_dir/devel/release.sh polebrush-root;
-    cp $chroot_dir/$chroot_dist_dir/$polebrush_name.tar.gz $tar_dst/bin/;;
+    cp $chroot_dir/$chroot_dist_dir/$polebrush_name.tar.gz $tar_dst/../../builds/polebrush/;;
 esac
 

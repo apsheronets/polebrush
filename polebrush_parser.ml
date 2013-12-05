@@ -13,7 +13,7 @@
  * You should have received a copy of the GNU General Public License
  * along with polebrush.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Copyright 2011 Alexander Markov *)
+ * Copyright 2011-2013 Alexander Markov *)
 
 open ExtLib
 open Polebrush

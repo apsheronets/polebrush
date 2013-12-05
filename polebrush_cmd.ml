@@ -13,12 +13,12 @@
  * You should have received a copy of the GNU General Public License
  * along with polebrush.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Copyright 2011 Alexander Markov *)
+ * Copyright 2011-2013 Alexander Markov *)
 
 let get_header_from_polebrush pb =
   match Enum.peek pb with
-  | Some (Polebrush.Header (_, (_, l::_))) ->
-      Some (Polebrush.string_of_line l)
+  | Some (Polebrush.Header (_, (_, lines))) ->
+      Some (String.concat " " (List.map Polebrush.string_of_line lines))
   | _ -> None
 
 let () =
@@ -34,14 +34,16 @@ let () =
   let disable_toc     = ref false in
   let get_header      = ref false in
   let print_header    = ref false in
+  let code_highlight_cmd = ref "" in
 
   let l = [
-    "-escape-html", Arg.Set escape_html, "Escape html among markup";
-    "-escape-nomarkup", Arg.Set escape_nomarkup, "Escape html in 'nomarkup.' and '== =='";
-    "-light", Arg.Set light, "Light mode: no blocks, just lines";
-    "-disable-toc", Arg.Set disable_toc, "Disable Tables of Contents, so all 'toc.' will be ignored; set it if you want stream processing";
-    "-get-header",  Arg.Set get_header, "Only try to get header of page";
-    "-print-header", Arg.Set print_header, "Additionally write 'Header: ...\\n\\n' before parsed text";
+    "-escape-html", Arg.Set escape_html, "\tEscape html among markup";
+    "-escape-nomarkup", Arg.Set escape_nomarkup, "\tEscape html in 'nomarkup.' and '== =='";
+    "-light", Arg.Set light, "\tLight mode: no blocks, just lines";
+    "-disable-toc", Arg.Set disable_toc, "\tDisable Tables of Contents, so all 'toc.' will be ignored; set it if you want stream processing";
+    "-get-header",  Arg.Set get_header, "\tOnly try to get header of page";
+    "-print-header", Arg.Set print_header, "\tAdditionally write 'Header: ...\\n\\n' before parsed text";
+    "-code-highlight-cmd", Arg.Set_string code_highlight_cmd, "\tCommand to execute to perform code highlighting. Example: 'source-highlight -t 2 -o STDOUT -s'";
   ] in
   Arg.parse l (fun _ -> raise (Arg.Bad help)) help;
 
@@ -97,6 +99,11 @@ let () =
         ~disable_toc:(!disable_toc)
         ~escape_cdata:(!escape_html)
         ~escape_nomarkup:(!escape_nomarkup)
+        ?code_highlight_cmd:(
+          if String.length !code_highlight_cmd = 0
+          then None
+          else Some !code_highlight_cmd
+        )
         pb in
     Enum.iter (print_string) xhtml;
     exit 0

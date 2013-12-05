@@ -22,7 +22,7 @@ else
   DOC    = $(CAMLDOC)
 endif
 
-PACKAGES = extlib
+PACKAGES = extlib,unix
 DUCEPACKAGES = ocamlduce,tyxml.duce
 
 DUCELIB = -package $(PACKAGES),$(DUCEPACKAGES)

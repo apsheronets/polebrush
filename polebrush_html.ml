@@ -13,7 +13,7 @@
  * You should have received a copy of the GNU General Public License
  * along with polebrush.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Copyright 2011 Alexander Markov *)
+ * Copyright 2011-2013 Alexander Markov *)
 
 open Printf
 open Polebrush
@@ -96,6 +96,36 @@ let make_id_from_header lines =
   (* FIXME *)
   encode_id s
 
+let markup_code cmd lang code =
+  let cmd = sprintf "%s %S" cmd lang in
+  let cmd_out, cmd_in, cmd_err = Unix.open_process_full cmd [| |] in
+
+  let stdout = Buffer.create ((String.length code) * 5) in
+  let stderr = Buffer.create 255 in
+
+  let () =
+    output_string cmd_in code;
+    close_out cmd_in;
+    let cmd_out_descr = Unix.descr_of_in_channel cmd_out in
+    let cmd_err_descr = Unix.descr_of_in_channel cmd_err in
+    let selector = ref [cmd_err_descr; cmd_out_descr] in
+    while !selector <> [] do
+      let can_read, _, _ = Unix.select !selector [] [] 1.0 in
+      List.iter
+        (fun fh ->
+           try
+             if fh = cmd_err_descr
+             then begin Buffer.add_string stderr (input_line cmd_err); Buffer.add_char stdout '\n' end
+             else begin Buffer.add_string stdout (input_line cmd_out); Buffer.add_char stdout '\n' end
+           with End_of_file ->
+             selector := List.filter (fun fh' -> fh <> fh') !selector)
+        can_read
+    done;
+    ignore (Unix.close_process_full (cmd_out, cmd_in, cmd_err)) in
+
+  Buffer.contents stdout
+
+
 exception Invalid_polebrush of string
 
 type toc = (string * int * Polebrush.line list) list
@@ -174,7 +204,7 @@ let rec parse_phrase escape_cdata escape_nomarkup =
 and of_line escape_cdata escape_nomarkup line =
   String.concat "" (List.map (parse_phrase escape_cdata escape_nomarkup) line)
 
-let of_block ?toc ?(escape_cdata=false) ?(escape_nomarkup=false) block =
+let of_block ?toc ?(escape_cdata=false) ?(escape_nomarkup=false) ?code_highlight_cmd block =
 
   let print_nomarkup = if escape_nomarkup then esc else dont_esc in
   let of_line = of_line escape_cdata escape_nomarkup in
@@ -284,10 +314,30 @@ let of_block ?toc ?(escape_cdata=false) ?(escape_nomarkup=false) block =
         i (po opts) i i (pl lines)
   | Paragraph (opts, lines) ->
       sprintf "<p%s>%s</p>" (po opts) (pl lines)
-  | Blockcode (opts, strings) ->
+  | Blockcode (((attrs, _, _) as opts), strings) ->
+      let wo_markup strings = sprintf "<pre>%s</pre>" (to_lines esc strings) in
+      let s =
+        match code_highlight_cmd with
+        | None -> wo_markup strings
+        | Some cmd -> (
+            let lang =
+              try
+                match List.find (function Language _ -> true | _ -> false) attrs with
+                | Language x -> Some x
+                | _ -> assert false
+              with Not_found -> None in
+            match lang with
+            | Some lang ->
+                let s = String.concat "\n" strings in
+                (try
+                  let markuped = markup_code cmd lang s in
+                  if String.length markuped < String.length s
+                  then wo_markup strings (* something bad happend *)
+                  else markuped
+                with _ -> wo_markup strings)
+            | None -> wo_markup strings) in
       let popts = po opts in
-      sprintf "<pre%s class=\"blockcode\"><code>%s</code></pre>"
-        popts (to_lines esc strings)
+      sprintf "<code%s class=\"blockcode\">%s</code>" popts s
   | Pre (opts, strings) ->
       sprintf "<pre%s>%s</pre>"
         (po opts) (to_lines esc strings)
@@ -347,20 +397,20 @@ let toc_of_enum enum =
     List.rev !toc_rev in
   toc, toc_enum
 
-let of_enum ?(disable_toc=false) ?escape_cdata ?escape_nomarkup enum =
+let of_enum ?(disable_toc=false) ?escape_cdata ?escape_nomarkup ?code_highlight_cmd enum =
   let toc, enum =
     if disable_toc
     then None, enum
     else
       let toc, enum = toc_of_enum enum in
       (Some toc), enum in
-  Enum.map (of_block ?toc ?escape_cdata ?escape_nomarkup) enum
+  Enum.map (of_block ?toc ?escape_cdata ?escape_nomarkup ?code_highlight_cmd) enum
 
-let of_stream ?escape_cdata ?escape_nomarkup stream =
+let of_stream ?escape_cdata ?escape_nomarkup ?code_highlight_cmd stream =
   Stream.from (fun _ ->
     try
       let b = Stream.next stream in
-      Some (of_block ?escape_cdata ?escape_nomarkup b)
+      Some (of_block ?escape_cdata ?escape_nomarkup ?code_highlight_cmd b)
     with Stream.Failure -> None)
 
 let of_line ?(escape_cdata=false) ?(escape_nomarkup=false) =

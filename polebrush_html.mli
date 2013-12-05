@@ -13,7 +13,7 @@
  * You should have received a copy of the GNU General Public License
  * along with polebrush.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Copyright 2011 Alexander Markov *)
+ * Copyright 2011-2013 Alexander Markov *)
 
 (** Facilities for converting polebrush into html *)
 
@@ -33,18 +33,18 @@ val elements_of_toc : toc -> Polebrush.element list
 (** @param disable_toc Do not generate Tables of Contents. Accelerates outputing and makes it streaming. If true, all [Polebrush.ToC] will be ignored. Default if false.
     @param escape_cdata Do not escape spedial HTML chars. Default is false.
     @param escape_nomarkup Escape special HTML chars even in [==nomarkup==] and [nomarkup.]. Default is false. *)
-val of_enum : ?disable_toc:bool -> ?escape_cdata:bool -> ?escape_nomarkup:bool -> Polebrush.block Enum.t -> string Enum.t
+val of_enum : ?disable_toc:bool -> ?escape_cdata:bool -> ?escape_nomarkup:bool -> ?code_highlight_cmd:string -> Polebrush.block Enum.t -> string Enum.t
 
 (** The same, but do stream processing and don't do tables of Contents, just ignore it.
     @param escape_cdata Do not escape spedial HTML chars. Default is false.
     @param escape_nomarkup Escape special HTML chars even in [==nomarkup==] and [nomarkup.]. Default is false. *)
-val of_stream : ?escape_cdata:bool -> ?escape_nomarkup:bool -> Polebrush.block Stream.t -> string Stream.t
+val of_stream : ?escape_cdata:bool -> ?escape_nomarkup:bool -> ?code_highlight_cmd:string -> Polebrush.block Stream.t -> string Stream.t
 
 (** The same, but takes only one polebrush block.
     @param toc Table of Contents which will be used if [toc.] will attended. If not passed, all [toc.] will be ignored.
     @param escape_cdata Do not escape spedial HTML chars. Default is false.
     @param escape_nomarkup Escape special HTML chars even in [==nomarkup==] and [nomarkup.]. Default is false. *)
-val of_block : ?toc:toc -> ?escape_cdata:bool -> ?escape_nomarkup:bool -> Polebrush.block -> string
+val of_block : ?toc:toc -> ?escape_cdata:bool -> ?escape_nomarkup:bool -> ?code_highlight_cmd:string -> Polebrush.block -> string
 
 (** Example of use:
 

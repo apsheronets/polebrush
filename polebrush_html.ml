@@ -305,6 +305,10 @@ let of_block ?toc ?(escape_cdata=false) ?(escape_nomarkup=false) ?code_highlight
   match block with
   | Header (i, (opts, lines)) ->
       sprintf "<h%d%s>%s</h%d>" i (po opts) (pl lines) i
+  | Abstract (opts, lines) ->
+      let popts = po opts in
+      sprintf "<div class=\"abstract\"%s><p%s>%s</p></div>"
+        popts popts (pl lines)
   | Blockquote (opts, lines) ->
       let popts = po opts in
       sprintf "<blockquote%s><p%s>%s</p></blockquote>"

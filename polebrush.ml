@@ -78,6 +78,7 @@ type element =
   int * line
 type block =
   | Header        of int * (options * line list) (* h1. *)
+  | Abstract      of (options * line list)       (* abstract. *)
   | Blockquote    of (options * line list)       (* bq. *)
   | Footnote      of int * (options * line list) (* fnn. *)
   | Paragraph     of (options * line list)     (* p. *)

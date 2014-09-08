@@ -433,7 +433,6 @@ let block_type =
   (p_char 'h' >>>
     p_pred (fun c -> c >= '1' && c <= '6') >>= fun c ->
     return (`Textblock (`Header (num_of_char c)))) |||
-  (p_str "abstract" >>> return (`Textblock `Abstract)) |||
   (p_str "bq" >>> return (`Textblock `Blockquote)) |||
   (p_str "fn" >>> p_unsign_int >>= fun i ->
     return (`Textblock (`Footnote i))) |||
@@ -662,7 +661,6 @@ let rec next_block stream =
             let strings f = get_strings extended >>= fun r -> return (f r) in
             (match bm with
             | `Header lvl    -> lines   (fun x -> Header (lvl,  (opts, x)))
-            | `Abstract      -> lines   (fun x -> Abstract      (opts, x))
             | `Blockquote    -> lines   (fun x -> Blockquote    (opts, x))
             | `Footnote n    -> lines   (fun x -> Footnote (n,  (opts, x)))
             | `Blockcode     -> strings (fun x -> Blockcode     (opts, x))

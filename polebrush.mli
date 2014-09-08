@@ -126,7 +126,6 @@ type row =
 (** Extended blocks parse automaticly so there is no difference for you between normal and extended blocks. *)
 type block =
   | Header         of int * (options * line list) (** h1. *)
-  | Abstract       of (options * line list)       (** abstract. *)
   | Blockquote     of (options * line list)       (** bq. *)
   | Footnote       of int * (options * line list) (** fnn. *)
   | Paragraph      of (options * line list)     (** p. *)

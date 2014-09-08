@@ -18,6 +18,19 @@
 open Printf
 open Polebrush
 
+(* Useful combinators *)
+let (>>) f g = g f
+(** применить значение к функции:
+    print_string & string_of_int & 123
+
+    NB: оператор "&" является ключевым словом в jocaml
+
+    Если попробовать объявить "let ( $ ) f x = f x",
+    то полученный оператор будет левоассоциативным,
+    что нежелательно в данном случае.
+*)
+let ( & ) f x = f x
+
 (* code from Ocsigen
  * Copyright (C) 2005-2008 Vincent Balat, Stéphane Glondu
  * Laboratoire PPS - CNRS Université Paris Diderot *)
@@ -149,20 +162,35 @@ let esc s =
   Buffer.contents buf
 let dont_esc s = s
 
-let parse_attr = function
-  | Class    s -> sprintf "class=\"%s\"" (esc s)
-  | Id       s -> sprintf "id=\"%s\""    (esc s)
-  | Style    s -> sprintf "style=\"%s\"" (esc s)
-  | Language s -> sprintf "lang=\"%s\""  (esc s)
-
-let parse_attrs = function
-  | [] -> ""
-  | attrs ->
-      let buf = Buffer.create 80 in
-      List.iter (fun attr ->
-        Buffer.add_char buf ' ';
-        Buffer.add_string buf (parse_attr attr)) attrs;
-      Buffer.contents buf
+let parse_attrs attrs =
+  let rec loop ((classes, ids, styles, languages) as acc) attrs =
+    match attrs with
+    | [] -> acc
+    | h::t ->
+        match h with
+        | Class    s -> loop ((s::classes), ids, styles, languages) t
+        | Id       s -> loop (classes, (s::ids), styles, languages) t
+        | Style    s -> loop (classes, ids, (s::styles), languages) t
+        | Language s -> loop (classes, ids, styles, (s::languages)) t in
+  let (classes, ids, styles, languages) = loop ([], [], [], []) attrs in
+  let classes =
+    match classes with
+    | [] -> ""
+    | l -> sprintf "class=\"%s\"" (esc (String.concat " " l)) in
+  let ids =
+    match ids with
+    | [] -> ""
+    | l -> String.concat " " (List.map (fun s -> sprintf "id=\"%s\"" (esc s)) l) in
+  let styles =
+    match styles with
+    | [] -> ""
+    | l -> sprintf "style=\"%s\"" (esc (String.concat ";" l)) in
+  let languages =
+    match languages with
+    | [] -> ""
+    | l -> String.concat " " (List.map (fun s -> sprintf "lang=\"%s\"" (esc s)) l) in
+  let r = [classes; ids; styles; languages] >> List.filter ((<>) "") >> String.concat " " in
+  if r = "" then "" else " " ^ r
 let pa = parse_attrs
 
 let rec parse_phrase escape_cdata escape_nomarkup =
@@ -189,11 +217,11 @@ let rec parse_phrase escape_cdata escape_nomarkup =
       (let alt, title = match alt with
       | Some s -> let s = esc s in p "alt=\"%s\"" s, p " title=\"%s\"" s
       | None -> "alt=\"\"", "" in
-      let float = match float with
-      | Some Float_left  -> " style=\"float: left\""
-      | Some Float_right -> " style=\"float: right\""
-      | None -> "" in
-      p "<img %s%s src=\"%s\"%s%s />" alt float (esc src) (pa a) title)
+      let a = match float with
+      | Some Float_left  -> (Style "float: left")  :: a
+      | Some Float_right -> (Style "float: right") :: a
+      | None -> a in
+      p "<img %s src=\"%s\"%s%s />" alt (esc src) (pa a) title)
   | Link ((attrs, l), title, url) ->
       (let title = match title with
         | Some s -> sprintf " title=%S" (esc s)
@@ -223,22 +251,22 @@ let of_block ?toc ?(escape_cdata=false) ?(escape_nomarkup=false) ?code_highlight
         | Left    -> "left"
         | Center  -> "center"
         | Justify -> "justify" in
-        sprintf " style=\"text-align:%s\"" s)
-    | None -> "" in
+        [Style (sprintf "text-align:%s" s)])
+    | None -> [] in
 
   let parse_padding = function
-    | 0, 0 -> ""
+    | 0, 0 -> []
     | l, 0 ->
-        sprintf " style=\"padding-left:%uem\"" l
+        [Style (sprintf "padding-left:%uem" l)]
     | 0, r ->
-        sprintf " style=\"padding-right:%uem\"" r
+        [Style (sprintf "padding-right:%uem" r)]
     | l, r ->
-        sprintf " style=\"padding-left:%uem; padding-right:%uem\"" l r in
+        [Style (sprintf "padding-left:%uem; padding-right:%uem" l r)] in
 
   let parse_options (attrs, talign, padding) =
-    String.concat "" [parse_attrs attrs;
-      parse_talign talign;
-      parse_padding padding] in
+    let attrs = List.rev_append (parse_talign talign) attrs in
+    let attrs = List.rev_append (parse_padding padding) attrs in
+    parse_attrs attrs in
 
   let parse_valign = function
     | Some x ->
@@ -246,11 +274,12 @@ let of_block ?toc ?(escape_cdata=false) ?(escape_nomarkup=false) ?code_highlight
         | Top -> "top"
         | Middle -> "middle"
         | Bottom -> "bottom" in
-        sprintf " style=\"vertical-align:%s\"" s)
-    | None -> "" in
+        [Style (sprintf "vertical-align:%s" s)])
+    | None -> [] in
 
-  let parse_tableoptions (opts, valign) =
-    String.concat "" [parse_options opts; parse_valign valign] in
+  let parse_tableoptions ((attrs, talign, padding), valign) =
+    let opts = ((List.rev_append (parse_valign valign) attrs), talign, padding) in
+    parse_options opts in
 
   let po = parse_options in
   let pt = parse_tableoptions in
@@ -306,9 +335,10 @@ let of_block ?toc ?(escape_cdata=false) ?(escape_nomarkup=false) ?code_highlight
   match block with
   | Header (i, (opts, lines)) ->
       sprintf "<h%d%s>%s</h%d>" i (po opts) (pl lines) i
-  | Abstract (opts, lines) ->
+  | Abstract ((attrs, talign, padding), lines) ->
+      let opts = (((Class "abstract") :: attrs), talign, padding) in
       let popts = po opts in
-      sprintf "<div class=\"abstract\"%s><p%s>%s</p></div>"
+      sprintf "<div%s><p%s>%s</p></div>"
         popts popts (pl lines)
   | Blockquote (opts, lines) ->
       let popts = po opts in

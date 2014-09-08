@@ -130,6 +130,17 @@ install-lib:
 uninstall-lib:
 	ocamlfind remove $(LIBNAME)
 
+PREFIX=/usr/local
+
+install: tools
+	install -m 755 polebrush $(PREFIX)/bin/polebrush
+	install -m 755 polebrush.byte $(PREFIX)/bin/polebrush.byte
+
+uninstall:
+	rm $(PREFIX)/bin/polebrush
+	rm $(PREFIX)/bin/polebrush.byte
+
+
 .SUFFIXES:
 .SUFFIXES: .ml .mli .cmo .cmi .cmx
 

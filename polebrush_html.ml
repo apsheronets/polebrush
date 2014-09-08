@@ -64,6 +64,7 @@ let encode_id =
         if valid_begin_char c
         then Buffer.add_char buf c
         else (
+          Buffer.add_char   buf 'b'; (* beginning *)
           Buffer.add_char   buf prefix;
           Buffer.add_string buf (to_hex2 (Char.code c))
         ) in

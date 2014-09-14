@@ -48,10 +48,16 @@ let rec peekn stream n =
     None
 
 
-(* let's parse *)
+(* lets parse *)
 
-let p_string_not_empty = function "" -> fail | s -> return s
 let whitespace = function ' ' | '\t' -> true | _ -> false
+let string_not_empty s =
+  try
+    String.iter (function ' ' | '\t' -> () | _ -> raise Not_found) s;
+    false
+  with Not_found (* never mind *) -> true
+let p_string_not_empty s = if string_not_empty s then return s else fail
+
 let punct = function
   | '!' | '"' | '$' | '%' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | '-' | '.' | ':' | ';' | '<' | '=' | '>' | '?' -> true | _ -> false
   (*(c >= '!' && c < '#') || (c > '#' && c <= '.') || (c >= ':' && c <= '?')*)
@@ -370,7 +376,6 @@ and all_phrases end_of_phrase =
     check_current p_not_whitespace >>>
     try_attrs (fun a ->
     p_str_until end_of_phrase >>= fun link ->
-    (* FIXME *)
     p_string_not_empty link >>>
     let r = Link ((a, [CData link]), None, link) in
     return r)
@@ -673,9 +678,11 @@ let rec next_block stream =
             | rows ->  return (Table (topts, rows)))
         | `ToC opts ->
             (match Stream.peek stream with
-            | None | Some "" (* FIXME *) ->
-                Stream.junk stream; return (ToC opts)
-            | _ -> fail)
+            | None -> (Stream.junk stream; return (ToC opts))
+            | Some s ->
+                if string_not_empty s
+                then fail
+                else (Stream.junk stream; return (ToC opts)))
       (* only table *)
       ) ||| (
         get_rows >>= fun rows ->

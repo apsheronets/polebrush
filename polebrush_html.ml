@@ -160,6 +160,9 @@ let esc s =
     |  c  -> Buffer.add_char buf c in
   String.iter f s;
   Buffer.contents buf
+let esc_href s =
+  let _, s = ExtLib.String.replace ~str:s ~sub:"javascript:" ~by:"" in
+  esc s
 let dont_esc s = s
 
 let parse_attrs attrs =
@@ -226,7 +229,7 @@ let rec parse_phrase escape_cdata escape_nomarkup =
       (let title = match title with
         | Some s -> sprintf " title=%S" (esc s)
         | None -> "" in
-      p "<a%s href=\"%s\"%s>%s</a>" title (esc url) (pa attrs) (pl l))
+      p "<a%s href=\"%s\"%s>%s</a>" title (esc_href url) (pa attrs) (pl l))
   | Reference i ->
       p "<sup class=\"footnote\"><a id=\"ref%d\" href=\"#fn%d\">%d</a></sup>" i i i
 

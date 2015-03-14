@@ -550,7 +550,9 @@ let rec next_block stream =
     let bullet = p_many p_whitespace >>> c in
     bullet >>>
     p_upto_timesf prev_level
-      (p_many p_whitespace >>> c)
+      (* XXX: this fix is for "** *strong*" problem *)
+      (* but breaks  "* * element" support *)
+      ((*p_many p_whitespace >>>*) c)
       (fun l _ -> succ l) 1 >>= fun lvl ->
     (* if you remove line below, strings started with Strong text will be
      * parsed as elements of list *)

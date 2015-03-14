@@ -227,7 +227,7 @@ let rec parse_phrase escape_cdata escape_nomarkup =
       p "<img %s src=\"%s\"%s%s />" alt (esc src) (pa a) title)
   | Link ((attrs, l), title, url) ->
       (let title = match title with
-        | Some s -> sprintf " title=%S" (esc s)
+        | Some s -> sprintf " title=%s" (esc s)
         | None -> "" in
       p "<a%s href=\"%s\"%s>%s</a>" title (esc_href url) (pa attrs) (pl l))
   | Reference i ->

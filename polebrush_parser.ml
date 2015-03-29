@@ -214,7 +214,7 @@ let reference beg_of_line =
   p_char ']' >>> end_of_phrase >>>
   return ((Reference i), e)
 
-(** high level function which made for collecting phrases
+(** high level function for collecting phrases
     @param what phrases to parse; everything else is CData
     @param ended_with what can be at the end of phrase
     @param from where to start
@@ -250,7 +250,7 @@ let rec phrases_except_hyperlinks end_of_phrase =
       ~from
       ~until >>= fun (line, _) ->
     return (f (a, line))) in
-  (* remember that __ and ** must be first than _ and * *)
+  (* remember that __ and ** must be before _ and * *)
   (* simple_phrase (p_str "__") (fun x -> Italic      x) |||
      simple_phrase (p_char '_') (fun x -> Emphasis    x) |||
      simple_phrase (p_str "**") (fun x -> Bold        x) |||
@@ -262,74 +262,84 @@ let rec phrases_except_hyperlinks end_of_phrase =
      simple_phrase (p_char '~') (fun x -> Subscript   x) |||
      simple_phrase (p_char '%') (fun x -> Span        x) |||
      simple_phrase (p_char '@') (fun x -> Code        x) |||*)
-  sp (p_str "__" >>> return ((fun x -> Italic      x), p_str "__")) |||
-  sp (p_str "**" >>> return ((fun x -> Bold        x), p_str "**")) |||
-  sp (p_pred2 (function
-    | '_' -> Some (((fun x -> Emphasis    x), p_char '_'))
-    | '*' -> Some (((fun x -> Strong      x), p_char '*'))
-    | '-' -> Some (((fun x -> Deleted     x), p_char '-'))
-    | '+' -> Some (((fun x -> Inserted    x), p_char '+'))
-    | '^' -> Some (((fun x -> Superscript x), p_char '^'))
-    | '~' -> Some (((fun x -> Subscript   x), p_char '~'))
-    | '%' -> Some (((fun x -> Span        x), p_char '%'))
-    | _ -> None)) |||
-  sp (p_str "??" >>> return ((fun x -> Citation    x), p_str "??")) |||
-  (* and there are not too simple phrases *)
-  (* code *)
-  (
-    opened_modifier (p_char '@') >>>
-    try_attrs (fun a ->
-    p_str_until (closed_modifier (p_char '@')) >>= fun s ->
-    return (Code (a, s)))
-  ) |||
-  (* nomarkup *)
-  (
-    opened_modifier (p_str "==") >>>
-    p_str_until (closed_modifier (p_str "==")) >>= fun s ->
-    return (Nomarkup s)
-  ) |||
-  (* image *)
-  (
-    (* ...:http://komar.bitcheese.net *)
-    let link_opt =
-      (p_char ':' >>>
-        p_until (p_not_whitespace) end_of_phrase >>= fun (url, _) ->
-        return (Some url)) |||
-      (end_of_phrase >>> return None) in
-    (* ...(title)! *)
-    let end_with_title =
-      p_char '(' >>>
-      p_str_until (p_str ")!") >>= fun title ->
-      link_opt >>= fun link_opt ->
-      return (title, link_opt) in
-    (* ...! *)
-    let end_with_no_title =
+  (* dirty fix for ____________this________ problem *)
+  let a : string * int -> Polebrush.phrase Polebrush_parsercomb.parse_result =
+    sp (p_str "__" >>> return ((fun x -> Italic      x), p_str "__")) |||
+    sp (p_str "**" >>> return ((fun x -> Bold        x), p_str "**")) |||
+    sp (p_pred2 (function
+      | '_' -> Some (((fun x -> Emphasis    x), p_char '_'))
+      | '*' -> Some (((fun x -> Strong      x), p_char '*'))
+      | '-' -> Some (((fun x -> Deleted     x), p_char '-'))
+      | '+' -> Some (((fun x -> Inserted    x), p_char '+'))
+      | '^' -> Some (((fun x -> Superscript x), p_char '^'))
+      | '~' -> Some (((fun x -> Subscript   x), p_char '~'))
+      | '%' -> Some (((fun x -> Span        x), p_char '%'))
+      | _ -> None)) |||
+    sp (p_str "??" >>> return ((fun x -> Citation    x), p_str "??")) |||
+    (* and there are not too simple phrases *)
+    (* code *)
+    (
+      opened_modifier (p_char '@') >>>
+      try_attrs (fun a ->
+      p_str_until (closed_modifier (p_char '@')) >>= fun s ->
+      return (Code (a, s)))
+    ) |||
+    (* nomarkup *)
+    (
+      opened_modifier (p_str "==") >>>
+      p_str_until (closed_modifier (p_str "==")) >>= fun s ->
+      return (Nomarkup s)
+    ) |||
+    (* image *)
+    (
+      (* ...:http://komar.bitcheese.net *)
+      let link_opt =
+        (p_char ':' >>>
+          p_until (p_not_whitespace) end_of_phrase >>= fun (url, _) ->
+          return (Some url)) |||
+        (end_of_phrase >>> return None) in
+      (* ...(title)! *)
+      let end_with_title =
+        p_char '(' >>>
+        p_str_until (p_str ")!") >>= fun title ->
+        link_opt >>= fun link_opt ->
+        return (title, link_opt) in
+      (* ...! *)
+      let end_with_no_title =
+        p_char '!' >>>
+        link_opt in
+
       p_char '!' >>>
-      link_opt in
+      img_opts >>= fun (attrs, float) ->
+      p_until p_not_whitespace (
+        (end_with_title >>= fun (title, link_opt) -> return (Some title, link_opt)) |||
+        (end_with_no_title >>= fun link_opt -> return (None, link_opt))
+      ) >>= fun (src, (title_opt, link_opt)) ->
 
-    p_char '!' >>>
-    img_opts >>= fun (attrs, float) ->
-    p_until p_not_whitespace (
-      (end_with_title >>= fun (title, link_opt) -> return (Some title, link_opt)) |||
-      (end_with_no_title >>= fun link_opt -> return (None, link_opt))
-    ) >>= fun (src, (title_opt, link_opt)) ->
-
-    let r =
-      let image = Image (attrs, float, src, title_opt) in
-      match link_opt with
-      | Some url -> Link (([], [image]), None, url)
-      | None -> image in
-    return r
-  ) ||| (
-  (* acronym *)
-    p_until
-      (p_pred (fun c -> c >= 'A' && c <= 'Z'))
-      (p_char '(') >>= fun (acr, _) ->
-    p_string_not_empty acr >>>
-    p_str_until (p_char ')' >>> end_of_phrase) >>= fun desc ->
-    (*p_str_until (closed_modifier (p_char ')')) >>= fun desc ->*)
-    return (Acronym (acr, desc))
-  )
+      let r =
+        let image = Image (attrs, float, src, title_opt) in
+        match link_opt with
+        | Some url -> Link (([], [image]), None, url)
+        | None -> image in
+      return r
+    ) ||| (
+    (* acronym *)
+      p_until
+        (p_pred (fun c -> c >= 'A' && c <= 'Z'))
+        (p_char '(') >>= fun (acr, _) ->
+      p_string_not_empty acr >>>
+      p_str_until (p_char ')' >>> end_of_phrase) >>= fun desc ->
+      (*p_str_until (closed_modifier (p_char ')')) >>= fun desc ->*)
+      return (Acronym (acr, desc))
+    )
+  in
+  (* dirty fix for ____________this________ problem *)
+  (function (s, pos) ->
+    if   (s.[pos] = '_' && s.[pos+1] = '_' && s.[pos+2] = '_')
+      || (s.[pos] = '*' && s.[pos+1] = '*' && s.[pos+2] = '*')
+      || (s.[pos] = '?' && s.[pos+1] = '?' && s.[pos+2] = '?')
+    then Failed
+    else a (s, pos))
 
 (* ... and one with them. *)
 and all_phrases end_of_phrase =

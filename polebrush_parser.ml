@@ -335,11 +335,15 @@ let rec phrases_except_hyperlinks end_of_phrase =
   in
   (* dirty fix for ____________this________ problem *)
   (function (s, pos) ->
-    if   (s.[pos] = '_' && s.[pos+1] = '_' && s.[pos+2] = '_')
-      || (s.[pos] = '*' && s.[pos+1] = '*' && s.[pos+2] = '*')
-      || (s.[pos] = '?' && s.[pos+1] = '?' && s.[pos+2] = '?')
-    then Failed
-    else a (s, pos))
+    try
+      if   (s.[pos] = '_' && s.[pos+1] = '_' && s.[pos+2] = '_')
+        || (s.[pos] = '*' && s.[pos+1] = '*' && s.[pos+2] = '*')
+        || (s.[pos] = '?' && s.[pos+1] = '?' && s.[pos+2] = '?')
+      then Failed
+      else a (s, pos)
+    with Invalid_argument _ ->
+      a (s, pos)
+  )
 
 (* ... and one with them. *)
 and all_phrases end_of_phrase =
